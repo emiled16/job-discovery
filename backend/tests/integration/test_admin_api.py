@@ -53,3 +53,48 @@ def test_admin_companies_list_and_create_validate_defaults(tmp_path: Path) -> No
     assert created.json()["data"]["lifecycle_status"] == "draft"
     assert created.json()["data"]["sources"][0]["is_enabled"] is True
     assert invalid.status_code == 422
+
+
+def test_admin_company_patch_validates_lifecycle_transitions(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        active = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222222",
+            slug="openai",
+            name="OpenAI",
+            lifecycle_status="active",
+        )
+        archived = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222223",
+            slug="archived",
+            name="Archived",
+            lifecycle_status="archived",
+        )
+        seed_company_source(
+            session,
+            source_id="33333333-3333-3333-3333-333333333332",
+            company_id=active.id,
+        )
+        seed_company_source(
+            session,
+            source_id="33333333-3333-3333-3333-333333333333",
+            company_id=archived.id,
+        )
+
+    with api_client(database_url) as client:
+        valid = client.patch(
+            f"/api/v1/admin/companies/{active.id}",
+            json={"lifecycle_status": "paused", "source": {"is_enabled": False}},
+        )
+        invalid = client.patch(
+            f"/api/v1/admin/companies/{archived.id}",
+            json={"lifecycle_status": "active"},
+        )
+
+    assert valid.status_code == 200
+    assert valid.json()["data"]["lifecycle_status"] == "paused"
+    assert valid.json()["data"]["sources"][0]["is_enabled"] is False
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "invalid_state_transition"
