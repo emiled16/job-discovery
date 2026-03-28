@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from job_discovery_backend.db.migrate import build_alembic_config
-from job_discovery_backend.db.models import Company, CompanySource, User
-from job_discovery_backend.db.seed_data import LOCAL_USER, STARTER_COMPANIES
+from job_discovery_backend.db.models import Company, CompanySource, Job, User
+from job_discovery_backend.db.seed_data import LOCAL_USER, STARTER_COMPANIES, STARTER_JOBS
 from job_discovery_backend.db.session import session_scope
 
 
@@ -20,6 +20,7 @@ class SeedSummary:
     users_upserted: int
     companies_upserted: int
     company_sources_upserted: int
+    jobs_upserted: int
 
 
 def _upsert_user(session: Session) -> int:
@@ -73,6 +74,45 @@ def _upsert_companies(session: Session) -> tuple[int, int]:
     return companies_upserted, sources_upserted
 
 
+def _upsert_jobs(session: Session) -> int:
+    jobs_upserted = 0
+
+    for record in STARTER_JOBS:
+        company = session.scalar(select(Company).where(Company.slug == record["company_slug"]))
+        source = session.scalar(
+            select(CompanySource).where(
+                CompanySource.company_id == company.id,
+                CompanySource.source_type == record["source_type"],
+            )
+        )
+        job = session.scalar(select(Job).where(Job.source_identity == record["source_identity"]))
+        payload = {
+            "company_id": company.id,
+            "source_id": source.id,
+            "source_job_key": record["source_job_key"],
+            "source_identity": record["source_identity"],
+            "title": record["title"],
+            "location_text": record["location_text"],
+            "work_mode": record["work_mode"],
+            "employment_type": record["employment_type"],
+            "status": record["status"],
+            "posted_at": record["posted_at"],
+            "apply_url": record["apply_url"],
+            "description_text": record["description_text"],
+            "last_seen_at": record["last_seen_at"],
+            "missed_sync_count": record["missed_sync_count"],
+        }
+        if job is None:
+            job = Job(id=record["id"], **payload)
+            session.add(job)
+        else:
+            for key, value in payload.items():
+                setattr(job, key, value)
+        jobs_upserted += 1
+
+    return jobs_upserted
+
+
 def run_seed(database_url: str | None = None, *, apply_migrations: bool = True) -> SeedSummary:
     if apply_migrations:
         command.upgrade(build_alembic_config(database_url), "head")
@@ -80,11 +120,13 @@ def run_seed(database_url: str | None = None, *, apply_migrations: bool = True) 
     with session_scope(database_url) as session:
         users_upserted = _upsert_user(session)
         companies_upserted, company_sources_upserted = _upsert_companies(session)
+        jobs_upserted = _upsert_jobs(session)
 
     return SeedSummary(
         users_upserted=users_upserted,
         companies_upserted=companies_upserted,
         company_sources_upserted=company_sources_upserted,
+        jobs_upserted=jobs_upserted,
     )
 
 
@@ -108,6 +150,7 @@ def main(argv: list[str] | None = None) -> None:
         f" users={summary.users_upserted}"
         f" companies={summary.companies_upserted}"
         f" company_sources={summary.company_sources_upserted}"
+        f" jobs={summary.jobs_upserted}"
     )
 
 

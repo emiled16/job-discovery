@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from job_discovery_backend.db.models import Company, CompanySource, User  # noqa: E402
+from job_discovery_backend.db.models import Company, CompanySource, Job, User  # noqa: E402
 from job_discovery_backend.db.seed import run_seed  # noqa: E402
 
 
@@ -28,6 +28,7 @@ def test_seed_runner_is_idempotent(tmp_path: Path) -> None:
         assert session.scalar(select(func.count()).select_from(User)) == 1
         assert session.scalar(select(func.count()).select_from(Company)) == 3
         assert session.scalar(select(func.count()).select_from(CompanySource)) == 3
+        assert session.scalar(select(func.count()).select_from(Job)) == 2
 
 
 def test_seed_creates_default_local_user(tmp_path: Path) -> None:

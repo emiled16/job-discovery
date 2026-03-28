@@ -62,12 +62,15 @@ services:
       context: ./backend
     command: ["python", "-m", "job_discovery_backend.worker.main"]
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "${DATABASE_URL:-postgresql://job_discovery:job_discovery@postgres:5432/job_discovery}"
+      WORKER_DATABASE_URL: "${WORKER_DATABASE_URL:-postgresql://job_discovery:job_discovery@postgres:5432/job_discovery}"
       WORKER_BROKER_URL: "${WORKER_BROKER_URL:-redis://redis:6379/0}"
       WORKER_RESULT_BACKEND: "${WORKER_RESULT_BACKEND:-redis://redis:6379/1}"
+      WORKER_HTTP_TIMEOUT_SECONDS: "${WORKER_HTTP_TIMEOUT_SECONDS:-15}"
     healthcheck:
       test:
         [
@@ -88,6 +91,8 @@ services:
       context: ./backend
     command: ["python", "-m", "job_discovery_backend.scheduler.main"]
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     environment:

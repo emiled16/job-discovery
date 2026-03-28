@@ -1,5 +1,7 @@
 """Deterministic local seed records."""
 
+from datetime import UTC, datetime
+
 LOCAL_USER = {
     "id": "11111111-1111-1111-1111-111111111111",
     "seed_key": "local_user",
@@ -61,5 +63,42 @@ STARTER_COMPANIES = (
             "configuration": {},
             "is_enabled": False,
         },
+    },
+)
+
+STARTER_JOBS = (
+    {
+        "id": "44444444-4444-4444-4444-444444444441",
+        "company_slug": "openai",
+        "source_type": "greenhouse",
+        "source_job_key": "seed-openai-ml",
+        "source_identity": "greenhouse:openai:seed-openai-ml",
+        "title": "ML Engineer",
+        "location_text": "Toronto, ON",
+        "work_mode": "remote",
+        "employment_type": "Full-time",
+        "status": "active",
+        "posted_at": datetime(2026, 3, 20, 12, 0, tzinfo=UTC),
+        "apply_url": "https://openai.com/careers/ml-engineer",
+        "description_text": "Seeded platform role for dashboard and apply flows.",
+        "last_seen_at": datetime(2026, 3, 28, 12, 0, tzinfo=UTC),
+        "missed_sync_count": 0,
+    },
+    {
+        "id": "44444444-4444-4444-4444-444444444442",
+        "company_slug": "vercel",
+        "source_type": "lever",
+        "source_job_key": "seed-vercel-platform",
+        "source_identity": "lever:vercel:seed-vercel-platform",
+        "title": "Platform Engineer",
+        "location_text": "Remote",
+        "work_mode": "remote",
+        "employment_type": "Full-time",
+        "status": "active",
+        "posted_at": datetime(2026, 3, 21, 12, 0, tzinfo=UTC),
+        "apply_url": "https://vercel.com/careers/platform-engineer",
+        "description_text": "Seeded infrastructure role for summary and admin flows.",
+        "last_seen_at": datetime(2026, 3, 28, 12, 0, tzinfo=UTC),
+        "missed_sync_count": 0,
     },
 )
