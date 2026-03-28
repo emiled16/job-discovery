@@ -11,6 +11,7 @@ from job_discovery_backend.api.errors import (
 )
 from job_discovery_backend.api.middleware import request_id_middleware
 from job_discovery_backend.api.routes.health import router as health_router
+from job_discovery_backend.api.routes.v1 import router as v1_router
 from job_discovery_backend.config import load_settings
 
 
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
     app.include_router(health_router)
+    app.include_router(v1_router)
     return app
 
 
