@@ -84,3 +84,45 @@ def get_summary_metrics(
             "application_rate": (applied_jobs / total_jobs) if total_jobs else 0,
         }
     }
+
+
+@router.get("/timeseries")
+def get_summary_timeseries(
+    filters: tuple[date | None, date | None, str] = Depends(_timeseries_filters),
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    start_date, end_date, bucket = filters
+
+    statement = select(Application.applied_at).where(
+        Application.user_id == current_user.id,
+        Application.status != "saved",
+        Application.applied_at.is_not(None),
+    )
+    if start_date:
+        statement = statement.where(Application.applied_at >= _start_of_day(start_date))
+    if end_date:
+        statement = statement.where(Application.applied_at <= _end_of_day(end_date))
+
+    applied_timestamps = [value for value in session.scalars(statement) if value is not None]
+    if bucket == "week":
+        if start_date is not None:
+            start_date = start_date - timedelta(days=start_date.weekday())
+        if end_date is not None:
+            end_date = end_date - timedelta(days=end_date.weekday())
+
+    if not applied_timestamps:
+        if start_date is None or end_date is None:
+            return {"data": []}
+        sequence = _bucket_sequence(start_date, end_date, bucket)
+        return {"data": [{"bucket_start": value.isoformat(), "count": 0} for value in sequence]}
+
+    counts = Counter(_bucket_start(value, bucket) for value in applied_timestamps)
+    effective_start = start_date or min(counts)
+    effective_end = end_date or max(counts)
+    if bucket == "week":
+        effective_start = effective_start - timedelta(days=effective_start.weekday())
+        effective_end = effective_end - timedelta(days=effective_end.weekday())
+
+    sequence = _bucket_sequence(effective_start, effective_end, bucket)
+    return {"data": [{"bucket_start": value.isoformat(), "count": counts.get(value, 0)} for value in sequence]}

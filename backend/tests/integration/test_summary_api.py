@@ -87,3 +87,59 @@ def test_summary_metrics_aggregate_total_applied_and_rate(tmp_path: Path) -> Non
         "saved_views": 1,
         "application_rate": 0.5,
     }
+
+
+def test_summary_timeseries_returns_stable_bucketed_series(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        user = seed_user(session)
+        company = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222222",
+            slug="vercel",
+            name="Vercel",
+        )
+        source = seed_company_source(
+            session,
+            source_id="33333333-3333-3333-3333-333333333332",
+            company_id=company.id,
+        )
+        for index, applied_at in enumerate(
+            [
+                datetime(2026, 1, 5, 9, 0, tzinfo=UTC),
+                datetime(2026, 1, 7, 9, 0, tzinfo=UTC),
+                datetime(2026, 1, 14, 9, 0, tzinfo=UTC),
+            ],
+            start=1,
+        ):
+            job = seed_job(
+                session,
+                job_id=f"44444444-4444-4444-4444-44444444444{index}",
+                company_id=company.id,
+                source_id=source.id,
+                title=f"Job {index}",
+                location_text="Remote",
+                work_mode="remote",
+                posted_at=applied_at,
+                description_text="Role",
+            )
+            seed_application(
+                session,
+                application_id=f"55555555-5555-5555-5555-55555555555{index}",
+                user_id=user.id,
+                job_id=job.id,
+                status="applied",
+                applied_at=applied_at,
+            )
+
+    with api_client(database_url) as client:
+        response = client.get(
+            "/api/v1/summary/timeseries",
+            params={"bucket": "week", "start_date": "2026-01-05", "end_date": "2026-01-18"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["data"] == [
+        {"bucket_start": "2026-01-05", "count": 2},
+        {"bucket_start": "2026-01-12", "count": 1},
+    ]
