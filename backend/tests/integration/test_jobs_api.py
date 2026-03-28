@@ -142,3 +142,58 @@ def test_jobs_list_supports_filter_combinations_sorting_and_paging(tmp_path: Pat
     payload = response.json()
     assert payload["data"][0]["id"] == target_job.id
     assert payload["data"][0]["application"]["status"] == "applied"
+
+
+def test_job_detail_returns_full_content_and_404_for_unknown_job(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        user = seed_user(session)
+        company = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222223",
+            slug="vercel",
+            name="Vercel",
+        )
+        source = seed_company_source(
+            session,
+            source_id="33333333-3333-3333-3333-333333333333",
+            company_id=company.id,
+        )
+        job = seed_job(
+            session,
+            job_id="44444444-4444-4444-4444-444444444445",
+            company_id=company.id,
+            source_id=source.id,
+            title="Platform Engineer",
+            location_text="Remote",
+            work_mode="remote",
+            posted_at=datetime(2026, 2, 1, 10, 0, tzinfo=UTC),
+            description_text="Full job description",
+        )
+        seed_application(
+            session,
+            application_id="55555555-5555-5555-5555-555555555552",
+            user_id=user.id,
+            job_id=job.id,
+            status="saved",
+            applied_at=None,
+            notes="Need referral",
+        )
+
+    with api_client(database_url) as client:
+        response = client.get(f"/api/v1/jobs/{job.id}")
+
+        assert response.status_code == 200
+        payload = response.json()["data"]
+        assert payload["id"] == job.id
+        assert payload["company"]["name"] == "Vercel"
+        assert payload["description_text"] == "Full job description"
+        assert payload["application"]["notes"] == "Need referral"
+
+        not_found = client.get("/api/v1/jobs/missing-job")
+
+    assert not_found.status_code == 404
+    assert not_found.json()["error"] == {
+        "code": "job_not_found",
+        "message": "Job not found",
+    }

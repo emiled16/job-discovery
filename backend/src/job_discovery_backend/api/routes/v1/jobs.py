@@ -117,6 +117,30 @@ def _serialize_job_list_item(job: Job, company: Company, application: Applicatio
     }
 
 
+def _serialize_job_detail(job: Job, company: Company, application: Application | None) -> dict:
+    return {
+        "id": job.id,
+        "title": job.title,
+        "company": {
+            "id": company.id,
+            "slug": company.slug,
+            "name": company.name,
+            "website_url": company.website_url,
+            "description": company.description,
+            "lifecycle_status": company.lifecycle_status,
+        },
+        "location_text": job.location_text,
+        "work_mode": job.work_mode,
+        "employment_type": job.employment_type,
+        "status": job.status,
+        "posted_at": job.posted_at,
+        "closed_at": job.closed_at,
+        "apply_url": job.apply_url,
+        "description_text": job.description_text,
+        "application": _serialize_application(application),
+    }
+
+
 @router.get("")
 def list_jobs(
     pagination: PaginationParams = Depends(_pagination_dependency),
@@ -149,3 +173,25 @@ def list_jobs(
             "total_pages": ceil(total / pagination.per_page) if total else 0,
         },
     }
+
+
+@router.get("/{job_id}")
+def get_job_detail(
+    job_id: str,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    statement = (
+        select(Job, Company, Application)
+        .join(Company, Company.id == Job.company_id)
+        .outerjoin(Application, (Application.job_id == Job.id) & (Application.user_id == current_user.id))
+        .where(Job.id == job_id)
+    )
+    row = session.execute(statement).one_or_none()
+    if row is None:
+        from job_discovery_backend.api.errors import ApiError
+
+        raise ApiError(404, "job_not_found", "Job not found")
+
+    job, company, application = row
+    return {"data": _serialize_job_detail(job, company, application)}
