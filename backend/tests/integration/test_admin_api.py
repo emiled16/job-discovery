@@ -192,3 +192,77 @@ def test_pipeline_runs_list_filters_by_status_date_and_company(tmp_path: Path) -
     assert response.status_code == 200
     assert response.json()["meta"]["total"] == 1
     assert response.json()["data"][0]["id"] == "77777777-7777-7777-7777-777777777771"
+
+
+def test_pipeline_run_detail_returns_joined_event_payloads(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        user = seed_user(session)
+        company = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222227",
+            slug="openai",
+            name="OpenAI",
+        )
+        run = seed_pipeline_run(
+            session,
+            run_id="77777777-7777-7777-7777-777777777774",
+            company_id=company.id,
+            user_id=user.id,
+            trigger_type="manual",
+            status="failed",
+            request_id="req-run-1",
+            started_at=datetime(2026, 2, 10, 10, 0, tzinfo=UTC),
+        )
+        seed_pipeline_run_event(
+            session,
+            event_id="88888888-8888-8888-8888-888888888881",
+            pipeline_run_id=run.id,
+            company_id=company.id,
+            event_type="fetch.started",
+            level="info",
+            sequence_number=1,
+            message="Fetch started",
+            payload={"step": "fetch"},
+        )
+        seed_pipeline_run_event(
+            session,
+            event_id="88888888-8888-8888-8888-888888888882",
+            pipeline_run_id=run.id,
+            company_id=company.id,
+            event_type="fetch.failed",
+            level="error",
+            sequence_number=2,
+            message="Fetch failed",
+            payload={"error": "timeout"},
+        )
+
+    with api_client(database_url) as client:
+        response = client.get(f"/api/v1/admin/pipeline-runs/{run.id}")
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["id"] == run.id
+    assert payload["company"]["name"] == "OpenAI"
+    assert payload["events"] == [
+        {
+            "id": "88888888-8888-8888-8888-888888888881",
+            "company_id": company.id,
+            "event_type": "fetch.started",
+            "level": "info",
+            "sequence_number": 1,
+            "message": "Fetch started",
+            "payload": {"step": "fetch"},
+            "created_at": payload["events"][0]["created_at"],
+        },
+        {
+            "id": "88888888-8888-8888-8888-888888888882",
+            "company_id": company.id,
+            "event_type": "fetch.failed",
+            "level": "error",
+            "sequence_number": 2,
+            "message": "Fetch failed",
+            "payload": {"error": "timeout"},
+            "created_at": payload["events"][1]["created_at"],
+        },
+    ]

@@ -276,6 +276,19 @@ def _serialize_pipeline_run(run: PipelineRun, company: Company | None) -> dict:
     }
 
 
+def _serialize_pipeline_event(event: PipelineRunEvent) -> dict:
+    return {
+        "id": event.id,
+        "company_id": event.company_id,
+        "event_type": event.event_type,
+        "level": event.level,
+        "sequence_number": event.sequence_number,
+        "message": event.message,
+        "payload": event.payload,
+        "created_at": event.created_at,
+    }
+
+
 def _company_sources(session: Session, company_id: str) -> list[CompanySource]:
     return session.scalars(
         select(CompanySource).where(CompanySource.company_id == company_id).order_by(CompanySource.created_at.asc())
@@ -461,4 +474,30 @@ def list_pipeline_runs(
             "total": total,
             "total_pages": ceil(total / pagination.per_page) if total else 0,
         },
+    }
+
+
+@router.get("/pipeline-runs/{run_id}")
+def get_pipeline_run_detail(
+    run_id: str,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    row = session.execute(
+        select(PipelineRun, Company).outerjoin(Company, Company.id == PipelineRun.company_id).where(PipelineRun.id == run_id)
+    ).one_or_none()
+    if row is None:
+        raise ApiError(404, "pipeline_run_not_found", "Pipeline run not found")
+
+    run, company = row
+    events = session.scalars(
+        select(PipelineRunEvent)
+        .where(PipelineRunEvent.pipeline_run_id == run.id)
+        .order_by(PipelineRunEvent.sequence_number.asc(), PipelineRunEvent.created_at.asc())
+    ).all()
+
+    return {
+        "data": {
+            **_serialize_pipeline_run(run, company),
+            "events": [_serialize_pipeline_event(event) for event in events],
+        }
     }
