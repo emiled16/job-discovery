@@ -112,6 +112,10 @@ def _clear_other_defaults(session: Session, user_id: str, view_id: str | None = 
         view.is_default = False
 
 
+def _get_owned_view(session: Session, view_id: str, user_id: str) -> SavedView | None:
+    return session.scalar(select(SavedView).where(SavedView.id == view_id, SavedView.user_id == user_id))
+
+
 @router.post("", status_code=201)
 def create_view(
     payload: SavedViewCreatePayload,
@@ -136,4 +140,29 @@ def create_view(
         session.rollback()
         raise ApiError(409, "view_name_conflict", "Saved view name already exists") from exc
 
+    return {"data": _serialize_view(view)}
+
+
+@router.get("")
+def list_views(
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    views = session.scalars(
+        select(SavedView)
+        .where(SavedView.user_id == current_user.id)
+        .order_by(SavedView.is_default.desc(), SavedView.name.asc())
+    ).all()
+    return {"data": [_serialize_view(view) for view in views]}
+
+
+@router.get("/{view_id}")
+def get_view(
+    view_id: str,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    view = _get_owned_view(session, view_id, current_user.id)
+    if view is None:
+        raise ApiError(404, "view_not_found", "Saved view not found")
     return {"data": _serialize_view(view)}
