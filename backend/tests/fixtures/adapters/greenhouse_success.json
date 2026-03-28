@@ -1,0 +1,38 @@
+{
+  "jobs": [
+    {
+      "id": 101,
+      "title": "Machine Learning Engineer",
+      "location": {
+        "name": "Remote - Canada"
+      },
+      "metadata": [
+        {
+          "name": "Employment Type",
+          "value": "Full-time"
+        }
+      ],
+      "first_published": "2026-03-20T12:00:00Z",
+      "updated_at": "2026-03-21T12:00:00Z",
+      "absolute_url": "https://boards.greenhouse.io/example/jobs/101",
+      "content": "<p>Build production ML systems.</p>"
+    },
+    {
+      "id": 102,
+      "title": "Platform Engineer",
+      "location": {
+        "name": "Toronto, ON"
+      },
+      "metadata": [
+        {
+          "name": "Commitment",
+          "value": "Hybrid"
+        }
+      ],
+      "first_published": "2026-03-18T12:00:00Z",
+      "updated_at": "2026-03-19T12:00:00Z",
+      "absolute_url": "https://boards.greenhouse.io/example/jobs/102",
+      "content": "<p>Own developer infrastructure.</p>"
+    }
+  ]
+}

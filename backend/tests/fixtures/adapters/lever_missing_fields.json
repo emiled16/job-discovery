@@ -1,0 +1,11 @@
+[
+  {
+    "id": "job-401",
+    "categories": {
+      "location": "Remote"
+    },
+    "createdAt": 1773902400000,
+    "updatedAt": 1773988800000,
+    "hostedUrl": "https://jobs.lever.co/example/job-401"
+  }
+]

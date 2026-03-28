@@ -1,0 +1,26 @@
+[
+  {
+    "id": "job-301",
+    "text": "Backend Engineer",
+    "categories": {
+      "location": "Remote - United States",
+      "commitment": "Full-time"
+    },
+    "createdAt": 1773988800000,
+    "updatedAt": 1774075200000,
+    "hostedUrl": "https://jobs.lever.co/example/job-301",
+    "descriptionPlain": "Work on the backend platform."
+  },
+  {
+    "id": "job-302",
+    "text": "Data Engineer",
+    "categories": {
+      "location": "Hybrid - Toronto",
+      "commitment": "Contract"
+    },
+    "createdAt": 1773902400000,
+    "updatedAt": 1773988800000,
+    "hostedUrl": "https://jobs.lever.co/example/job-302",
+    "descriptionPlain": "Build ingestion and analytics pipelines."
+  }
+]
