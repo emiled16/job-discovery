@@ -2,7 +2,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "Job Discovery",
-  description: "Platform bootstrap",
+  description: "Job discovery and application tracking platform",
 };
 
 export default function RootLayout({ children }) {
@@ -12,4 +12,3 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
-

@@ -1,26 +1,29 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import { describe, expect, it } from "vitest";
 
 import { loadConfig } from "../../scripts/validate-config.mjs";
 
-test("frontend config rejects invalid port", () => {
-  assert.throws(
-    () => loadConfig({ FRONTEND_PORT: "0" }),
-    /FRONTEND_PORT must be an integer between 1 and 65535/,
-  );
-});
+describe("frontend config", () => {
+  it("rejects invalid port", () => {
+    expect(() => loadConfig({ FRONTEND_PORT: "0" })).toThrow(
+      /FRONTEND_PORT must be an integer between 1 and 65535/,
+    );
+  });
 
-test("frontend config rejects invalid api base url", () => {
-  assert.throws(
-    () => loadConfig({ NEXT_PUBLIC_API_BASE_URL: "/api" }),
-    /NEXT_PUBLIC_API_BASE_URL must be a valid absolute URL/,
-  );
-});
+  it("rejects invalid api base url", () => {
+    expect(() => loadConfig({ NEXT_PUBLIC_API_BASE_URL: "/api" })).toThrow(
+      /NEXT_PUBLIC_API_BASE_URL must be a valid absolute URL/,
+    );
+  });
 
-test("frontend config rejects invalid telemetry flag", () => {
-  assert.throws(
-    () => loadConfig({ NEXT_TELEMETRY_DISABLED: "true" }),
-    /NEXT_TELEMETRY_DISABLED must be either 0 or 1/,
-  );
-});
+  it("rejects invalid internal api base url", () => {
+    expect(() => loadConfig({ API_INTERNAL_BASE_URL: "ftp://api" })).toThrow(
+      /API_INTERNAL_BASE_URL must use http or https/,
+    );
+  });
 
+  it("rejects invalid telemetry flag", () => {
+    expect(() => loadConfig({ NEXT_TELEMETRY_DISABLED: "true" })).toThrow(
+      /NEXT_TELEMETRY_DISABLED must be either 0 or 1/,
+    );
+  });
+});

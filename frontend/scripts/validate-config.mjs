@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 const DEFAULTS = {
   FRONTEND_PORT: "3000",
   NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
+  API_INTERNAL_BASE_URL: "http://localhost:8000",
   NEXT_TELEMETRY_DISABLED: "1",
 };
 
@@ -15,17 +16,17 @@ function parsePort(rawValue) {
   return value;
 }
 
-function parseApiBaseUrl(rawValue) {
+function parseApiBaseUrl(rawValue, fieldName = "NEXT_PUBLIC_API_BASE_URL") {
   let parsed;
 
   try {
     parsed = new URL(rawValue);
   } catch {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL must be a valid absolute URL");
+    throw new Error(`${fieldName} must be a valid absolute URL`);
   }
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL must use http or https");
+    throw new Error(`${fieldName} must use http or https`);
   }
 
   return parsed.toString().replace(/\/$/, "");
@@ -46,6 +47,13 @@ export function loadConfig(env = process.env) {
     port: parsePort(rawPort),
     apiBaseUrl: parseApiBaseUrl(
       env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULTS.NEXT_PUBLIC_API_BASE_URL,
+      "NEXT_PUBLIC_API_BASE_URL",
+    ),
+    internalApiBaseUrl: parseApiBaseUrl(
+      env.API_INTERNAL_BASE_URL ??
+        env.NEXT_PUBLIC_API_BASE_URL ??
+        DEFAULTS.API_INTERNAL_BASE_URL,
+      "API_INTERNAL_BASE_URL",
     ),
     telemetryDisabled: parseTelemetryFlag(
       env.NEXT_TELEMETRY_DISABLED ?? DEFAULTS.NEXT_TELEMETRY_DISABLED,
@@ -56,4 +64,3 @@ export function loadConfig(env = process.env) {
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   loadConfig();
 }
-

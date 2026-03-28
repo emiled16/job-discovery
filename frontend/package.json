@@ -6,11 +6,19 @@
     "dev": "node ./scripts/run-next.mjs dev",
     "build": "node ./scripts/run-next.mjs build",
     "start": "node ./scripts/run-next.mjs start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node ./scripts/run-tests.mjs"
   },
   "dependencies": {
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "jsdom": "^27.0.0",
+    "vitest": "^3.2.4"
   }
 }
