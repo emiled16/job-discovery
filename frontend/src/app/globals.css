@@ -234,7 +234,8 @@ button {
 .summary-toolbar,
 .collection-list,
 .editor-heading,
-.chart-header {
+.chart-header,
+.event-stream {
   display: grid;
   gap: 18px;
 }
@@ -351,6 +352,34 @@ button {
 
 .collection-item small {
   color: var(--muted);
+}
+
+.event-item {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.event-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-item p,
+.event-item small {
+  color: var(--muted);
+}
+
+.event-payload {
+  margin: 14px 0 0;
+  padding: 14px;
+  border-radius: 18px;
+  background: #201c19;
+  color: #f8eee3;
+  overflow-x: auto;
 }
 
 .compact-panel {
