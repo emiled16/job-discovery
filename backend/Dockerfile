@@ -22,11 +22,12 @@ WORKDIR /app
 RUN useradd --create-home --uid 10001 appuser
 
 COPY --from=builder /usr/local /usr/local
+COPY alembic.ini ./
+COPY alembic ./alembic
 COPY src ./src
 
 USER appuser
 
 EXPOSE 8000
 
-CMD ["python", "-m", "job_discovery_backend.main"]
-
+CMD ["sh", "-c", "python -m job_discovery_backend.db.seed && python -m job_discovery_backend.main"]

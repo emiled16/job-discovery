@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 from typing import Mapping
 from urllib.parse import urlparse
 
@@ -52,7 +53,7 @@ def _require_text(env: Mapping[str, str], key: str, default: str) -> str:
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> SchedulerSettings:
-    source = env or {}
+    source = os.environ if env is None else env
 
     return SchedulerSettings(
         broker_url=_parse_url(
@@ -74,4 +75,3 @@ def load_settings(env: Mapping[str, str] | None = None) -> SchedulerSettings:
         ),
         timezone=_require_text(source, "SCHEDULER_TIMEZONE", "UTC"),
     )
-

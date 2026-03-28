@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 from typing import Mapping
 from urllib.parse import urlparse
 
@@ -52,7 +53,7 @@ def _parse_url(
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> BackendSettings:
-    source = env or {}
+    source = os.environ if env is None else env
 
     return BackendSettings(
         host=_require_text(source, "BACKEND_HOST", "0.0.0.0"),
@@ -70,4 +71,3 @@ def load_settings(env: Mapping[str, str] | None = None) -> BackendSettings:
             {"redis", "rediss"},
         ),
     )
-
