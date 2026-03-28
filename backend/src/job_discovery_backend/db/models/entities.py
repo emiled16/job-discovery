@@ -1,8 +1,6 @@
-"""ORM models for the persistence layer."""
-
 from __future__ import annotations
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from job_discovery_backend.db.base import Base
@@ -171,6 +169,12 @@ class Job(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+    missed_sync_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
     )
 
 

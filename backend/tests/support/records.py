@@ -71,19 +71,22 @@ def seed_job(
     job_id: str,
     company_id: str,
     source_id: str,
+    source_job_key: str | None = None,
+    source_identity: str | None = None,
     title: str,
     location_text: str,
     work_mode: str,
     posted_at: datetime,
     description_text: str,
     status: str = "active",
+    missed_sync_count: int = 0,
 ) -> Job:
     job = Job(
         id=job_id,
         company_id=company_id,
         source_id=source_id,
-        source_job_key=f"source-{job_id}",
-        source_identity=f"identity-{job_id}",
+        source_job_key=source_job_key or f"source-{job_id}",
+        source_identity=source_identity or f"identity-{job_id}",
         title=title,
         location_text=location_text,
         work_mode=work_mode,
@@ -92,6 +95,7 @@ def seed_job(
         posted_at=posted_at,
         apply_url=f"https://example.com/jobs/{job_id}",
         description_text=description_text,
+        missed_sync_count=missed_sync_count,
     )
     session.add(job)
     session.commit()

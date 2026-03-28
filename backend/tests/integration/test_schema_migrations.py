@@ -6,7 +6,7 @@ import sys
 
 from alembic import command
 import pytest
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, event, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -238,6 +238,10 @@ def test_jobs_table_enforces_source_identity_uniqueness_and_required_title(tmp_p
         company = _seed_company(session)
         source = _seed_company_source(session, company.id)
         _seed_job(session, company.id, source.id)
+
+        job = session.scalar(select(Job).where(Job.id == "00000000-0000-0000-0000-000000000301"))
+        assert job is not None
+        assert job.missed_sync_count == 0
 
         session.add(
             Job(

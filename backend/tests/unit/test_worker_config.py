@@ -30,6 +30,13 @@ class WorkerConfigTests(unittest.TestCase):
         ):
             load_settings({"WORKER_MAX_COMPANY_SYNC_WORKERS": "0"})
 
+    def test_invalid_job_closure_threshold_raises_descriptive_error(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigError,
+            "WORKER_JOB_CLOSURE_MISSED_CYCLES must be a positive integer",
+        ):
+            load_settings({"WORKER_JOB_CLOSURE_MISSED_CYCLES": "0"})
+
 
 if __name__ == "__main__":
     unittest.main()

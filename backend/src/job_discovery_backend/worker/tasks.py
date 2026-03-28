@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from job_discovery_backend.ingestion.processor import build_company_sync_processor
 from job_discovery_backend.ingestion.pipeline import SyncCompanyRequest, process_sync_request, run_scheduled_sync
 from job_discovery_backend.worker.celery_app import celery_app
 from job_discovery_backend.worker.config import load_settings
@@ -27,7 +28,13 @@ def sync_company_task(**payload: Any) -> dict[str, Any]:
         request_id=None if payload.get("request_id") is None else str(payload["request_id"]),
         trigger_type=str(payload.get("trigger_type") or "manual"),
     )
-    outcome = process_sync_request(settings.database_url, request)
+    outcome = process_sync_request(
+        settings.database_url,
+        request,
+        processor=build_company_sync_processor(
+            missed_cycle_threshold=settings.job_closure_missed_cycles,
+        ),
+    )
     return {"pipeline_run_id": request.pipeline_run_id, "status": outcome.status, "details": outcome.details}
 
 
@@ -37,4 +44,7 @@ def sync_all_companies_task() -> dict[str, Any]:
     return run_scheduled_sync(
         settings.database_url,
         max_workers=settings.max_company_sync_workers,
+        processor=build_company_sync_processor(
+            missed_cycle_threshold=settings.job_closure_missed_cycles,
+        ),
     )

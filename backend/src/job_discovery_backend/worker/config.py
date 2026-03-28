@@ -14,6 +14,7 @@ class WorkerSettings:
     result_backend: str
     database_url: str
     max_company_sync_workers: int
+    job_closure_missed_cycles: int
 
 
 def _parse_url(
@@ -71,5 +72,10 @@ def load_settings(env: Mapping[str, str] | None = None) -> WorkerSettings:
             source,
             "WORKER_MAX_COMPANY_SYNC_WORKERS",
             "4",
+        ),
+        job_closure_missed_cycles=_parse_positive_int(
+            source,
+            "WORKER_JOB_CLOSURE_MISSED_CYCLES",
+            "3",
         ),
     )
