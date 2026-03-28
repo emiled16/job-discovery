@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -220,3 +220,16 @@ def update_view(
         raise ApiError(409, "view_name_conflict", "Saved view name already exists") from exc
 
     return {"data": _serialize_view(view)}
+
+
+@router.delete("/{view_id}", status_code=204)
+def delete_view(
+    view_id: str,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    view = _get_owned_view(session, view_id, current_user.id)
+    if view is not None:
+        session.delete(view)
+        session.commit()
+    return Response(status_code=204)

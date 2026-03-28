@@ -95,7 +95,7 @@ def test_saved_view_read_and_list_respect_ownership(tmp_path: Path) -> None:
     assert other_response.status_code == 404
 
 
-def test_saved_view_update_is_safe_and_validates_partial_mutations(tmp_path: Path) -> None:
+def test_saved_view_update_and_delete_are_safe_and_idempotent(tmp_path: Path) -> None:
     database_url = _database_url(tmp_path)
     with session_for_database(database_url) as session:
         user = seed_user(session)
@@ -124,12 +124,17 @@ def test_saved_view_update_is_safe_and_validates_partial_mutations(tmp_path: Pat
             json={"name": "Updated Second", "is_default": True},
         )
         invalid = client.patch(f"/api/v1/views/{second_view.id}", json={})
+        deleted = client.delete(f"/api/v1/views/{second_view.id}")
+        deleted_again = client.delete(f"/api/v1/views/{second_view.id}")
 
     assert updated.status_code == 200
     assert updated.json()["data"]["name"] == "Updated Second"
     assert updated.json()["data"]["is_default"] is True
     assert invalid.status_code == 422
+    assert deleted.status_code == 204
+    assert deleted_again.status_code == 204
 
     with session_for_database(database_url) as session:
+        assert session.get(SavedView, second_view.id) is None
         original_default = session.get(SavedView, first_view.id)
         assert original_default.is_default is False
