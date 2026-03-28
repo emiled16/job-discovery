@@ -66,8 +66,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> WorkerSettings:
         database_url=_parse_url(
             source,
             "WORKER_DATABASE_URL",
-            "postgresql://job_discovery:job_discovery@postgres:5432/job_discovery",
-            {"sqlite", "postgres", "postgresql"},
+            "postgresql+psycopg://job_discovery:job_discovery@postgres:5432/job_discovery",
+            {"sqlite", "postgres", "postgresql", "postgresql+psycopg"},
         ),
         max_company_sync_workers=_parse_positive_int(
             source,

@@ -31,11 +31,14 @@ async function proxy(request, context) {
     cache: "no-store",
   });
 
-  const responseBody = await response.text();
+  const responseBody =
+    response.status === 204 || response.status === 304 ? null : await response.text();
   return new NextResponse(responseBody, {
     status: response.status,
     headers: {
-      "content-type": response.headers.get("content-type") ?? "application/json",
+      ...(response.headers.get("content-type")
+        ? { "content-type": response.headers.get("content-type") }
+        : {}),
       ...(response.headers.get("x-request-id")
         ? { "x-request-id": response.headers.get("x-request-id") }
         : {}),

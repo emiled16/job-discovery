@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import json
 import time
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from uuid import uuid4
-
-import httpx
 
 
 @dataclass(frozen=True)
@@ -14,32 +16,71 @@ class Endpoints:
     api_url: str
 
 
-def _client(timeout_seconds: int) -> httpx.Client:
-    return httpx.Client(timeout=httpx.Timeout(timeout_seconds), follow_redirects=True)
+def _request(
+    url: str,
+    *,
+    method: str = "GET",
+    timeout_seconds: int,
+    params: list[tuple[str, str]] | None = None,
+    json_body: dict | None = None,
+) -> tuple[int, dict[str, str], str]:
+    if params:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}{urlencode(params, doseq=True)}"
+
+    body_bytes: bytes | None = None
+    headers = {"Accept": "application/json"}
+    if json_body is not None:
+        body_bytes = json.dumps(json_body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    request = Request(url, data=body_bytes, headers=headers, method=method)
+    with urlopen(request, timeout=timeout_seconds) as response:
+        return response.status, dict(response.headers), response.read().decode("utf-8")
 
 
-def _wait_for(client: httpx.Client, url: str, *, timeout_seconds: int) -> None:
+def _request_json(
+    url: str,
+    *,
+    method: str = "GET",
+    timeout_seconds: int,
+    params: list[tuple[str, str]] | None = None,
+    json_body: dict | None = None,
+) -> dict:
+    status, _headers, body = _request(
+        url,
+        method=method,
+        timeout_seconds=timeout_seconds,
+        params=params,
+        json_body=json_body,
+    )
+    if status >= 400:
+        raise RuntimeError(f"{method} {url} failed with status {status}")
+    return json.loads(body)
+
+
+def _wait_for(url: str, *, timeout_seconds: int) -> None:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         try:
-            response = client.get(url)
-            if response.status_code == 200:
+            status, _, _ = _request(url, timeout_seconds=timeout_seconds)
+            if status == 200:
                 return
-        except httpx.HTTPError:
+        except (HTTPError, URLError):
             pass
         time.sleep(2)
     raise RuntimeError(f"Timed out waiting for {url}")
 
 
-def _assert_page(client: httpx.Client, url: str, expected_text: str) -> None:
-    response = client.get(url)
-    response.raise_for_status()
-    if expected_text not in response.text:
+def _assert_page(url: str, expected_text: str, *, timeout_seconds: int) -> None:
+    status, _, body = _request(url, timeout_seconds=timeout_seconds)
+    if status >= 400:
+        raise RuntimeError(f"{url} failed with status {status}")
+    if expected_text not in body:
         raise RuntimeError(f"{url} did not include expected text: {expected_text}")
 
 
 def _wait_for_run_detail(
-    client: httpx.Client,
     frontend_url: str,
     pipeline_run_id: str,
     *,
@@ -47,11 +88,11 @@ def _wait_for_run_detail(
 ) -> dict:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        response = client.get(
+        payload = _request_json(
             f"{frontend_url}/api/backend/api/v1/admin/pipeline-runs/{pipeline_run_id}",
+            timeout_seconds=timeout_seconds,
         )
-        response.raise_for_status()
-        payload = response.json()["data"]
+        payload = payload["data"]
         if payload["status"] not in {"queued", "running"}:
             return payload
         time.sleep(2)
@@ -59,79 +100,110 @@ def _wait_for_run_detail(
 
 
 def run_compose_e2e(endpoints: Endpoints, *, startup_timeout_seconds: int, timeout_seconds: int) -> None:
-    with _client(timeout_seconds) as client:
-        _wait_for(client, f"{endpoints.api_url}/health", timeout_seconds=startup_timeout_seconds)
-        _wait_for(client, endpoints.frontend_url, timeout_seconds=startup_timeout_seconds)
+    _wait_for(f"{endpoints.api_url}/health", timeout_seconds=startup_timeout_seconds)
+    _wait_for(endpoints.frontend_url, timeout_seconds=startup_timeout_seconds)
 
-        _assert_page(client, endpoints.frontend_url, "Open dashboard")
-        _assert_page(client, f"{endpoints.frontend_url}/dashboard", "Search the live pipeline.")
-        _assert_page(client, f"{endpoints.frontend_url}/views", "Reuse the queries that matter.")
-        _assert_page(client, f"{endpoints.frontend_url}/summary", "Measure search progress")
-        _assert_page(client, f"{endpoints.frontend_url}/admin", "Operate the ingestion surface.")
+    _assert_page(endpoints.frontend_url, "Open dashboard", timeout_seconds=timeout_seconds)
+    _assert_page(
+        f"{endpoints.frontend_url}/dashboard",
+        "Search the live pipeline.",
+        timeout_seconds=timeout_seconds,
+    )
+    _assert_page(
+        f"{endpoints.frontend_url}/views",
+        "Reuse the queries that matter.",
+        timeout_seconds=timeout_seconds,
+    )
+    _assert_page(
+        f"{endpoints.frontend_url}/summary",
+        "Measure search progress",
+        timeout_seconds=timeout_seconds,
+    )
+    _assert_page(
+        f"{endpoints.frontend_url}/admin",
+        "Operate the ingestion surface.",
+        timeout_seconds=timeout_seconds,
+    )
 
-        jobs_response = client.get(f"{endpoints.frontend_url}/api/backend/api/v1/jobs")
-        jobs_response.raise_for_status()
-        jobs_payload = jobs_response.json()
-        if jobs_payload["meta"]["total"] < 1:
-            raise RuntimeError("Expected seeded jobs for compose E2E")
+    jobs_payload = _request_json(
+        f"{endpoints.frontend_url}/api/backend/api/v1/jobs",
+        timeout_seconds=timeout_seconds,
+    )
+    if jobs_payload["meta"]["total"] < 1:
+        raise RuntimeError("Expected seeded jobs for compose E2E")
 
-        job_id = jobs_payload["data"][0]["id"]
-        application_response = client.put(
-            f"{endpoints.frontend_url}/api/backend/api/v1/jobs/{job_id}/application",
-            json={"status": "applied"},
-        )
-        application_response.raise_for_status()
+    job_id = jobs_payload["data"][0]["id"]
+    _request_json(
+        f"{endpoints.frontend_url}/api/backend/api/v1/jobs/{job_id}/application",
+        method="PUT",
+        json_body={"status": "applied"},
+        timeout_seconds=timeout_seconds,
+    )
 
-        applications_response = client.get(
-            f"{endpoints.frontend_url}/api/backend/api/v1/applications",
-            params=[("statuses", "applied")],
-        )
-        applications_response.raise_for_status()
-        if not applications_response.json()["data"]:
-            raise RuntimeError("Expected at least one applied job in compose E2E flow")
+    applications_payload = _request_json(
+        f"{endpoints.frontend_url}/api/backend/api/v1/applications",
+        params=[("statuses", "applied")],
+        timeout_seconds=timeout_seconds,
+    )
+    if not applications_payload["data"]:
+        raise RuntimeError("Expected at least one applied job in compose E2E flow")
 
-        view_name = f"Compose Smoke {uuid4().hex[:8]}"
-        view_response = client.post(
-            f"{endpoints.frontend_url}/api/backend/api/v1/views",
-            json={
-                "name": view_name,
-                "filters": {"title": "Engineer", "location": None, "company_ids": [], "work_modes": [], "posted_after": None, "posted_before": None},
-                "sort": {"field": "posted_at", "direction": "desc"},
-                "is_default": False,
+    view_name = f"Compose Smoke {uuid4().hex[:8]}"
+    view_payload = _request_json(
+        f"{endpoints.frontend_url}/api/backend/api/v1/views",
+        method="POST",
+        json_body={
+            "name": view_name,
+            "filters": {
+                "title": "Engineer",
+                "location": None,
+                "company_ids": [],
+                "work_modes": [],
+                "posted_after": None,
+                "posted_before": None,
             },
-        )
-        view_response.raise_for_status()
-        view_id = view_response.json()["data"]["id"]
+            "sort": {"field": "posted_at", "direction": "desc"},
+            "is_default": False,
+        },
+        timeout_seconds=timeout_seconds,
+    )
+    view_id = view_payload["data"]["id"]
 
-        summary_response = client.get(f"{endpoints.frontend_url}/api/backend/api/v1/summary/metrics")
-        summary_response.raise_for_status()
-        summary_payload = summary_response.json()["data"]
-        if summary_payload["total_jobs"] < 1 or summary_payload["applied_jobs"] < 1:
-            raise RuntimeError("Summary metrics did not reflect seeded/apply flow state")
+    summary_payload = _request_json(
+        f"{endpoints.frontend_url}/api/backend/api/v1/summary/metrics",
+        timeout_seconds=timeout_seconds,
+    )["data"]
+    if summary_payload["total_jobs"] < 1 or summary_payload["applied_jobs"] < 1:
+        raise RuntimeError("Summary metrics did not reflect seeded/apply flow state")
 
-        companies_response = client.get(f"{endpoints.frontend_url}/api/backend/api/v1/admin/companies")
-        companies_response.raise_for_status()
-        company_id = companies_response.json()["data"][0]["id"]
+    companies_payload = _request_json(
+        f"{endpoints.frontend_url}/api/backend/api/v1/admin/companies",
+        timeout_seconds=timeout_seconds,
+    )
+    company_id = companies_payload["data"][0]["id"]
 
-        sync_response = client.post(
-            f"{endpoints.frontend_url}/api/backend/api/v1/admin/companies/{company_id}/sync",
-        )
-        sync_response.raise_for_status()
-        pipeline_run_id = sync_response.json()["data"]["pipeline_run_id"]
+    sync_payload = _request_json(
+        f"{endpoints.frontend_url}/api/backend/api/v1/admin/companies/{company_id}/sync",
+        method="POST",
+        timeout_seconds=timeout_seconds,
+    )
+    pipeline_run_id = sync_payload["data"]["pipeline_run_id"]
 
-        run_detail = _wait_for_run_detail(
-            client,
-            endpoints.frontend_url,
-            pipeline_run_id,
-            timeout_seconds=timeout_seconds,
-        )
-        if not run_detail["events"]:
-            raise RuntimeError("Expected pipeline run events after manual sync")
+    run_detail = _wait_for_run_detail(
+        endpoints.frontend_url,
+        pipeline_run_id,
+        timeout_seconds=timeout_seconds,
+    )
+    if not run_detail["events"]:
+        raise RuntimeError("Expected pipeline run events after manual sync")
 
-        delete_response = client.delete(
-            f"{endpoints.frontend_url}/api/backend/api/v1/views/{view_id}",
-        )
-        delete_response.raise_for_status()
+    delete_status, _, _ = _request(
+        f"{endpoints.frontend_url}/api/backend/api/v1/views/{view_id}",
+        method="DELETE",
+        timeout_seconds=timeout_seconds,
+    )
+    if delete_status != 204:
+        raise RuntimeError(f"Expected 204 deleting smoke saved view, got {delete_status}")
 
 
 def main() -> None:

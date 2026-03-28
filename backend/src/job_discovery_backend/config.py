@@ -61,8 +61,8 @@ def load_settings(env: Mapping[str, str] | None = None) -> BackendSettings:
         database_url=_parse_url(
             source,
             "DATABASE_URL",
-            "postgresql://job_discovery:job_discovery@postgres:5432/job_discovery",
-            {"postgres", "postgresql"},
+            "postgresql+psycopg://job_discovery:job_discovery@postgres:5432/job_discovery",
+            {"postgres", "postgresql", "postgresql+psycopg"},
         ),
         redis_url=_parse_url(
             source,

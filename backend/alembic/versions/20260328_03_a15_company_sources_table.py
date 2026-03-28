@@ -21,7 +21,7 @@ def upgrade() -> None:
         sa.Column("external_key", sa.String(length=255), nullable=True),
         sa.Column("base_url", sa.String(length=1024), nullable=True),
         sa.Column("configuration", sa.JSON(), nullable=False, server_default="{}"),
-        sa.Column("is_enabled", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+        sa.Column("is_enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

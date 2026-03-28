@@ -96,7 +96,7 @@ class CompanySource(Base):
         Boolean,
         nullable=False,
         default=True,
-        server_default="1",
+        server_default=func.true(),
     )
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True),
@@ -262,7 +262,7 @@ class SavedView(Base):
         Boolean,
         nullable=False,
         default=False,
-        server_default="0",
+        server_default=func.false(),
     )
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True),
