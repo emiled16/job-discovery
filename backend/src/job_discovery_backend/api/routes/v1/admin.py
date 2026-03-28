@@ -16,6 +16,7 @@ from job_discovery_backend.api.query import PaginationParams, SortParams, parse_
 from job_discovery_backend.api.validation import normalize_optional_text, validate_http_url
 from job_discovery_backend.db.models import Company, CompanySource, PipelineRun, PipelineRunEvent, User
 from job_discovery_backend.db.schema import COMPANY_LIFECYCLE_STATES, COMPANY_SOURCE_TYPES, PIPELINE_RUN_STATUSES
+from job_discovery_backend.worker.tasks import SYNC_COMPANY_TASK_NAME, dispatch_company_sync
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -326,3 +327,32 @@ def update_company(
         raise ApiError(409, "company_conflict", "Company already exists") from exc
 
     return {"data": _serialize_company(company, _company_sources(session, company.id))}
+
+
+@router.post("/companies/{company_id}/sync", status_code=202)
+def trigger_company_sync(
+    company_id: str,
+    request: Request,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    company = session.get(Company, company_id)
+    if company is None:
+        raise ApiError(404, "company_not_found", "Company not found")
+
+    request_id = get_request_id(request)
+    payload = {
+        "company_id": company.id,
+        "requested_by_user_id": current_user.id,
+        "request_id": request_id,
+    }
+    dispatch_company_sync(payload)
+
+    return {
+        "data": {
+            "task_name": SYNC_COMPANY_TASK_NAME,
+            "company_id": company.id,
+            "request_id": request_id,
+            "status": "queued",
+        }
+    }

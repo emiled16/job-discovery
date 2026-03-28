@@ -98,3 +98,37 @@ def test_admin_company_patch_validates_lifecycle_transitions(tmp_path: Path) -> 
     assert valid.json()["data"]["sources"][0]["is_enabled"] is False
     assert invalid.status_code == 422
     assert invalid.json()["error"]["code"] == "invalid_state_transition"
+
+
+def test_manual_sync_dispatches_company_request_metadata(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        user = seed_user(session)
+        company = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222224",
+            slug="openai",
+            name="OpenAI",
+        )
+
+    with patch("job_discovery_backend.api.routes.v1.admin.dispatch_company_sync") as dispatch:
+        with api_client(database_url) as client:
+            response = client.post(
+                f"/api/v1/admin/companies/{company.id}/sync",
+                headers={"X-Request-ID": "req-sync-1"},
+            )
+
+    assert response.status_code == 202
+    assert response.json()["data"] == {
+        "task_name": "pipeline.sync_company",
+        "company_id": company.id,
+        "request_id": "req-sync-1",
+        "status": "queued",
+    }
+    dispatch.assert_called_once_with(
+        {
+            "company_id": company.id,
+            "requested_by_user_id": user.id,
+            "request_id": "req-sync-1",
+        }
+    )
