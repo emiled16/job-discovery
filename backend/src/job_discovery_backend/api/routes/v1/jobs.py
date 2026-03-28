@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
 from math import ceil
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from job_discovery_backend.api.dependencies import get_current_user, get_db_session
+from job_discovery_backend.api.errors import ApiError
 from job_discovery_backend.api.jobs.filters import JobFilterParams, parse_job_filters
 from job_discovery_backend.api.query import PaginationParams, SortParams, parse_pagination_params, parse_sort_params
+from job_discovery_backend.api.validation import normalize_optional_text
 from job_discovery_backend.db.models import Application, Company, Job, User
+from job_discovery_backend.db.schema import APPLICATION_STATUSES
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -20,6 +25,24 @@ JOB_SORT_FIELDS = {
     "posted_at": Job.posted_at,
     "title": Job.title,
 }
+
+
+class ApplicationUpsertPayload(BaseModel):
+    status: str
+    applied_at: datetime | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        if value not in APPLICATION_STATUSES:
+            raise ValueError(f"status must be one of: {', '.join(APPLICATION_STATUSES)}")
+        return value
+
+    @field_validator("notes")
+    @classmethod
+    def normalize_notes(cls, value: str | None) -> str | None:
+        return normalize_optional_text(value)
 
 
 def _pagination_dependency(page: int = Query(1), per_page: int = Query(20)) -> PaginationParams:
@@ -189,9 +212,70 @@ def get_job_detail(
     )
     row = session.execute(statement).one_or_none()
     if row is None:
-        from job_discovery_backend.api.errors import ApiError
-
         raise ApiError(404, "job_not_found", "Job not found")
 
     job, company, application = row
     return {"data": _serialize_job_detail(job, company, application)}
+
+
+@router.put("/{job_id}/application")
+def upsert_application(
+    job_id: str,
+    payload: ApplicationUpsertPayload,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    job = session.get(Job, job_id)
+    if job is None:
+        raise ApiError(404, "job_not_found", "Job not found")
+
+    application = session.scalar(
+        select(Application).where(
+            Application.user_id == current_user.id,
+            Application.job_id == job.id,
+        )
+    )
+
+    applied_at = payload.applied_at
+    if payload.status == "saved":
+        applied_at = None
+    elif applied_at is None:
+        applied_at = application.applied_at if application and application.applied_at else datetime.now(UTC)
+
+    if application is None:
+        application = Application(
+            id=str(uuid4()),
+            user_id=current_user.id,
+            job_id=job.id,
+            status=payload.status,
+            applied_at=applied_at,
+            notes=payload.notes,
+        )
+        session.add(application)
+    else:
+        application.status = payload.status
+        application.applied_at = applied_at
+        application.notes = payload.notes
+
+    session.commit()
+    company = session.get(Company, job.company_id)
+    return {
+        "data": {
+            "id": application.id,
+            "status": application.status,
+            "applied_at": application.applied_at,
+            "notes": application.notes,
+            "job": {
+                "id": job.id,
+                "title": job.title,
+                "status": job.status,
+            },
+            "company": {
+                "id": company.id,
+                "slug": company.slug,
+                "name": company.name,
+            },
+            "created_at": application.created_at,
+            "updated_at": application.updated_at,
+        }
+    }
