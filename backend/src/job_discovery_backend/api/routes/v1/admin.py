@@ -184,6 +184,57 @@ def _run_sort_dependency(sort: str | None = Query(None), order: str | None = Que
     )
 
 
+def _run_filter_dependency(
+    company_id: str | None = Query(None),
+    statuses: list[str] | None = Query(None),
+    started_after: date | None = Query(None),
+    started_before: date | None = Query(None),
+) -> tuple[str | None, tuple[str, ...], date | None, date | None]:
+    normalized_statuses = tuple(status.strip() for status in statuses or [] if status.strip())
+    invalid_statuses = sorted(set(normalized_statuses).difference(PIPELINE_RUN_STATUSES))
+    if invalid_statuses:
+        raise ApiError(
+            422,
+            "invalid_query",
+            "Invalid pipeline run filters",
+            details=[
+                {
+                    "field": "statuses",
+                    "message": f"Must be drawn from: {', '.join(PIPELINE_RUN_STATUSES)}",
+                    "code": "invalid_choice",
+                }
+            ],
+        )
+    if started_after and started_before and started_after > started_before:
+        raise ApiError(
+            422,
+            "invalid_query",
+            "Invalid pipeline run filters",
+            details=[
+                {
+                    "field": "started_after",
+                    "message": "Must be on or before started_before",
+                    "code": "invalid_range",
+                }
+            ],
+        )
+    return company_id, normalized_statuses, started_after, started_before
+
+
+def _start_of_day(value: date) -> datetime:
+    return datetime.combine(value, time.min, tzinfo=UTC)
+
+
+def _end_of_day(value: date) -> datetime:
+    return datetime.combine(value, time.max, tzinfo=UTC)
+
+
+def _order_clauses(sort_params: SortParams) -> list:
+    column = PIPELINE_RUN_SORT_FIELDS[sort_params.field]
+    direction = column.asc() if sort_params.direction == "asc" else column.desc()
+    return [column.is_(None), direction, PipelineRun.id.asc()]
+
+
 def _serialize_source(source: CompanySource) -> dict:
     return {
         "id": source.id,
@@ -208,6 +259,20 @@ def _serialize_company(company: Company, sources: list[CompanySource]) -> dict:
         "created_at": company.created_at,
         "updated_at": company.updated_at,
         "sources": [_serialize_source(source) for source in sources],
+    }
+
+
+def _serialize_pipeline_run(run: PipelineRun, company: Company | None) -> dict:
+    return {
+        "id": run.id,
+        "company": None if company is None else {"id": company.id, "slug": company.slug, "name": company.name},
+        "requested_by_user_id": run.requested_by_user_id,
+        "trigger_type": run.trigger_type,
+        "status": run.status,
+        "request_id": run.request_id,
+        "details": run.details,
+        "started_at": run.started_at,
+        "finished_at": run.finished_at,
     }
 
 
@@ -355,4 +420,45 @@ def trigger_company_sync(
             "request_id": request_id,
             "status": "queued",
         }
+    }
+
+
+@router.get("/pipeline-runs")
+def list_pipeline_runs(
+    pagination: PaginationParams = Depends(_pagination_dependency),
+    sort: SortParams = Depends(_run_sort_dependency),
+    filters: tuple[str | None, tuple[str, ...], date | None, date | None] = Depends(_run_filter_dependency),
+    session: Session = Depends(get_db_session),
+) -> dict:
+    company_id, statuses, started_after, started_before = filters
+
+    statement = select(PipelineRun, Company).outerjoin(Company, Company.id == PipelineRun.company_id)
+    count_statement = select(func.count()).select_from(PipelineRun)
+
+    if company_id:
+        statement = statement.where(PipelineRun.company_id == company_id)
+        count_statement = count_statement.where(PipelineRun.company_id == company_id)
+    if statuses:
+        statement = statement.where(PipelineRun.status.in_(statuses))
+        count_statement = count_statement.where(PipelineRun.status.in_(statuses))
+    if started_after:
+        statement = statement.where(PipelineRun.started_at >= _start_of_day(started_after))
+        count_statement = count_statement.where(PipelineRun.started_at >= _start_of_day(started_after))
+    if started_before:
+        statement = statement.where(PipelineRun.started_at <= _end_of_day(started_before))
+        count_statement = count_statement.where(PipelineRun.started_at <= _end_of_day(started_before))
+
+    total = session.scalar(count_statement) or 0
+    rows = session.execute(
+        statement.order_by(*_order_clauses(sort)).offset(pagination.offset).limit(pagination.per_page)
+    ).all()
+
+    return {
+        "data": [_serialize_pipeline_run(run, company) for run, company in rows],
+        "meta": {
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "total": total,
+            "total_pages": ceil(total / pagination.per_page) if total else 0,
+        },
     }

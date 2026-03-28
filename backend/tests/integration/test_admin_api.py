@@ -132,3 +132,63 @@ def test_manual_sync_dispatches_company_request_metadata(tmp_path: Path) -> None
             "request_id": "req-sync-1",
         }
     )
+
+
+def test_pipeline_runs_list_filters_by_status_date_and_company(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        user = seed_user(session)
+        openai = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222225",
+            slug="openai",
+            name="OpenAI",
+        )
+        other = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222226",
+            slug="vercel",
+            name="Vercel",
+        )
+        seed_pipeline_run(
+            session,
+            run_id="77777777-7777-7777-7777-777777777771",
+            company_id=openai.id,
+            user_id=user.id,
+            trigger_type="manual",
+            status="failed",
+            started_at=datetime(2026, 2, 1, 10, 0, tzinfo=UTC),
+        )
+        seed_pipeline_run(
+            session,
+            run_id="77777777-7777-7777-7777-777777777772",
+            company_id=openai.id,
+            user_id=user.id,
+            trigger_type="scheduled",
+            status="succeeded",
+            started_at=datetime(2026, 2, 2, 10, 0, tzinfo=UTC),
+        )
+        seed_pipeline_run(
+            session,
+            run_id="77777777-7777-7777-7777-777777777773",
+            company_id=other.id,
+            user_id=user.id,
+            trigger_type="manual",
+            status="failed",
+            started_at=datetime(2026, 2, 3, 10, 0, tzinfo=UTC),
+        )
+
+    with api_client(database_url) as client:
+        response = client.get(
+            "/api/v1/admin/pipeline-runs",
+            params=[
+                ("company_id", openai.id),
+                ("statuses", "failed"),
+                ("started_after", "2026-02-01"),
+                ("started_before", "2026-02-28"),
+            ],
+        )
+
+    assert response.status_code == 200
+    assert response.json()["meta"]["total"] == 1
+    assert response.json()["data"][0]["id"] == "77777777-7777-7777-7777-777777777771"
