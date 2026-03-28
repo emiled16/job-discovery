@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from job_discovery_backend.urls import validate_public_http_url_optional
 
 
 def normalize_optional_text(value: str | None) -> str | None:
@@ -11,11 +11,4 @@ def normalize_optional_text(value: str | None) -> str | None:
 
 
 def validate_http_url(value: str | None, *, field_name: str) -> str | None:
-    normalized = normalize_optional_text(value)
-    if normalized is None:
-        return None
-
-    parsed = urlparse(normalized)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ValueError(f"{field_name} must be a valid http or https URL")
-    return normalized
+    return validate_public_http_url_optional(value, field_name=field_name)

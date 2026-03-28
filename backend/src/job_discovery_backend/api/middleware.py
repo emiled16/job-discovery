@@ -6,6 +6,7 @@ from uuid import uuid4
 from fastapi import Request, Response
 
 from job_discovery_backend.api.errors import REQUEST_ID_HEADER
+from job_discovery_backend.observability import clear_request_id, set_request_id
 
 
 async def request_id_middleware(
@@ -14,7 +15,11 @@ async def request_id_middleware(
 ) -> Response:
     request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid4())
     request.state.request_id = request_id
+    token = set_request_id(request_id)
 
-    response = await call_next(request)
-    response.headers[REQUEST_ID_HEADER] = request_id
-    return response
+    try:
+        response = await call_next(request)
+        response.headers[REQUEST_ID_HEADER] = request_id
+        return response
+    finally:
+        clear_request_id(token)

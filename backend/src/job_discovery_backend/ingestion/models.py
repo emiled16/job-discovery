@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlparse
 
 from job_discovery_backend.db.schema import JOB_WORK_MODES
+from job_discovery_backend.urls import validate_public_http_url_optional
 
 
 class IngestionError(ValueError):
@@ -27,14 +27,10 @@ def _normalize_text(value: str | None, *, field_name: str, required: bool = Fals
 
 
 def _normalize_url(value: str | None, *, field_name: str) -> str | None:
-    normalized = _normalize_text(value, field_name=field_name)
-    if normalized is None:
-        return None
-
-    parsed = urlparse(normalized)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise IngestionError(f"{field_name} must be an absolute http(s) URL")
-    return normalized
+    try:
+        return validate_public_http_url_optional(value, field_name=field_name)
+    except ValueError as exc:
+        raise IngestionError(str(exc)) from exc
 
 
 def _normalize_datetime(value: datetime | None, *, field_name: str) -> datetime | None:

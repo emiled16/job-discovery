@@ -1,9 +1,11 @@
 from celery.bin.worker import worker as celery_worker
 
+from job_discovery_backend.observability import configure_logging
 from job_discovery_backend.worker.celery_app import celery_app
 
 
 def main() -> None:
+    configure_logging("worker")
     worker = celery_worker(app=celery_app)
     worker.run(
         loglevel="INFO",
@@ -16,4 +18,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

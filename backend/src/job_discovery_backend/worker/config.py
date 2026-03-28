@@ -15,6 +15,7 @@ class WorkerSettings:
     database_url: str
     max_company_sync_workers: int
     job_closure_missed_cycles: int
+    http_timeout_seconds: int
 
 
 def _parse_url(
@@ -77,5 +78,10 @@ def load_settings(env: Mapping[str, str] | None = None) -> WorkerSettings:
             source,
             "WORKER_JOB_CLOSURE_MISSED_CYCLES",
             "3",
+        ),
+        http_timeout_seconds=_parse_positive_int(
+            source,
+            "WORKER_HTTP_TIMEOUT_SECONDS",
+            "15",
         ),
     )

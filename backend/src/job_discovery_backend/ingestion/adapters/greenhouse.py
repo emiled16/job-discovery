@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -8,15 +9,23 @@ from job_discovery_backend.db.models import CompanySource
 from job_discovery_backend.ingestion.adapters.base import BaseJobSourceAdapter
 from job_discovery_backend.ingestion.models import AdapterFetchResult, IngestionError, NormalizedJob, infer_work_mode
 
+_EXTERNAL_KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
 
 def _external_key(source: CompanySource) -> str:
+    candidate: str | None = None
     if source.external_key and source.external_key.strip():
-        return source.external_key.strip()
-    if source.base_url:
+        candidate = source.external_key.strip()
+    elif source.base_url:
         path = urlparse(source.base_url).path.strip("/")
         if path:
-            return path.split("/")[-1]
-    raise IngestionError("greenhouse sources require external_key or base_url")
+            candidate = path.split("/")[-1]
+
+    if candidate is None:
+        raise IngestionError("greenhouse sources require external_key or base_url")
+    if not _EXTERNAL_KEY_PATTERN.fullmatch(candidate):
+        raise IngestionError("greenhouse external_key contains unsupported characters")
+    return candidate
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
@@ -45,8 +54,8 @@ def _metadata_value(job: dict[str, Any], target_names: set[str]) -> str | None:
 
 
 class GreenhouseAdapter(BaseJobSourceAdapter):
-    def __init__(self) -> None:
-        super().__init__(source_type="greenhouse")
+    def __init__(self, *, timeout_seconds: int = 30) -> None:
+        super().__init__(source_type="greenhouse", request_timeout_seconds=timeout_seconds)
 
     def build_request_url(self, source: CompanySource) -> str:
         return f"https://boards-api.greenhouse.io/v1/boards/{_external_key(source)}/jobs?content=true"
