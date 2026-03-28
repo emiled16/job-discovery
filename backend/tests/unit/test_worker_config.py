@@ -23,7 +23,13 @@ class WorkerConfigTests(unittest.TestCase):
         ):
             load_settings({"WORKER_RESULT_BACKEND": "redis://"})
 
+    def test_invalid_max_company_sync_workers_raises_descriptive_error(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigError,
+            "WORKER_MAX_COMPANY_SYNC_WORKERS must be a positive integer",
+        ):
+            load_settings({"WORKER_MAX_COMPANY_SYNC_WORKERS": "0"})
+
 
 if __name__ == "__main__":
     unittest.main()
-

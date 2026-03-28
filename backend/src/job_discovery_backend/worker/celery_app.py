@@ -15,8 +15,9 @@ celery_app.conf.update(
     task_ignore_result=False,
 )
 
+import job_discovery_backend.worker.tasks  # noqa: E402,F401
+
 
 @celery_app.task(name="worker.ping")
 def ping() -> str:
     return "pong"
-

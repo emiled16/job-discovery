@@ -8,8 +8,12 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from support.api import api_client, session_for_database  # noqa: E402
+from sqlalchemy.orm import Session
+
+from support.api import api_client, migrated_sqlite_engine, session_for_database  # noqa: E402
 from support.records import seed_company, seed_company_source, seed_pipeline_run, seed_pipeline_run_event, seed_user  # noqa: E402
+
+from job_discovery_backend.db.models import PipelineRun  # noqa: E402
 
 
 def _database_url(tmp_path: Path) -> str:
@@ -119,19 +123,31 @@ def test_manual_sync_dispatches_company_request_metadata(tmp_path: Path) -> None
             )
 
     assert response.status_code == 202
+    pipeline_run_id = response.json()["data"]["pipeline_run_id"]
     assert response.json()["data"] == {
         "task_name": "pipeline.sync_company",
         "company_id": company.id,
+        "pipeline_run_id": pipeline_run_id,
         "request_id": "req-sync-1",
         "status": "queued",
     }
     dispatch.assert_called_once_with(
         {
+            "pipeline_run_id": pipeline_run_id,
             "company_id": company.id,
             "requested_by_user_id": user.id,
             "request_id": "req-sync-1",
+            "trigger_type": "manual",
         }
     )
+
+    engine = migrated_sqlite_engine(database_url)
+    with Session(engine) as session:
+        run = session.get(PipelineRun, pipeline_run_id)
+        assert run is not None
+        assert run.company_id == company.id
+        assert run.status == "queued"
+    engine.dispose()
 
 
 def test_pipeline_runs_list_filters_by_status_date_and_company(tmp_path: Path) -> None:
