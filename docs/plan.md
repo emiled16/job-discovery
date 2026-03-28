@@ -21,6 +21,10 @@ Non-negotiable engineering goals:
 - postgres: transactional system of record.
 - redis: broker/result backend.
 
+Implementation note:
+
+- `api`, `worker`, and `scheduler` are separate runtime roles and containers, but they may live inside a single backend Python codebase with shared modules and tests.
+
 ---
 
 ## Execution Phases and Milestones
@@ -119,16 +123,16 @@ Non-negotiable engineering goals:
 
 | ID | Task | Definition | Expected Result | Success Criteria (Tests) |
 |---|---|---|---|---|
-| A01 | Create root service directories | Add canonical folders for frontend/backend/infra/tests. | Predictable repo shape. | Repo-structure check validates required directories. |
+| A01 | Create root service directories | Add canonical folders for frontend/backend/infra, with service-owned test directories under frontend/backend. | Predictable repo shape. | Repo-structure check validates required directories. |
 | A02 | Add backend app package skeleton | Create FastAPI app modules and entrypoint. | API boots with placeholder route. | Startup test returns 200 from health endpoint. |
-| A03 | Add worker package skeleton | Create Celery app config and worker entrypoint. | Worker process starts cleanly. | Worker boot test confirms broker connection. |
-| A04 | Add scheduler package skeleton | Create Beat entrypoint and schedule config loader. | Beat process starts with schedule registry. | Beat boot test confirms registered periodic task IDs. |
+| A03 | Add worker package skeleton | Create Celery app config and worker entrypoint inside the backend codebase. | Worker process starts cleanly. | Worker boot test confirms broker connection. |
+| A04 | Add scheduler package skeleton | Create Beat entrypoint and schedule config loader inside the backend codebase. | Beat process starts with schedule registry. | Beat boot test confirms registered periodic task IDs. |
 | A05 | Add frontend app skeleton | Create Next.js app with route scaffolding. | Frontend serves base page in container. | UI smoke test returns 200 for `/`. |
-| A06 | Add Dockerfiles per service | Define Docker build for frontend/api/worker/scheduler. | Reproducible image builds. | CI/local build test succeeds for all images. |
+| A06 | Add Dockerfiles per service | Define Docker build targets for frontend plus separate api/worker/scheduler runtime containers, allowing shared backend build context where appropriate. | Reproducible image builds. | CI/local build test succeeds for all images. |
 | A07 | Compose base service graph | Define all services, ports, networks, volumes. | Stack starts with all containers created. | Compose config validation + startup smoke passes. |
 | A08 | Compose healthchecks | Add app/db/redis health probes and dependencies. | Startup gating avoids race failures. | Health test asserts all services become healthy. |
 | A09 | Environment template | Create `.env.example` with all required variables. | Complete documented config surface. | Static config test checks required keys present. |
-| A10 | Runtime config validation | Implement strict env parsing in each service. | Fast fail on misconfiguration. | Unit tests verify invalid env raises descriptive errors. |
+| A10 | Runtime config validation | Implement strict env parsing for frontend and each backend runtime role. | Fast fail on misconfiguration. | Unit tests verify invalid env raises descriptive errors. |
 | A11 | DB engine/session wiring | Create Postgres connection/session management. | Stable DB connectivity for API/worker. | Integration test creates and closes session successfully. |
 | A12 | Migration framework setup | Add Alembic configuration and migration runner. | Versioned schema evolution available. | Migration test applies baseline to empty DB. |
 | A13 | Users table migration | Add minimal users schema for local single-user mode. | Persistent user identity available. | DB test validates constraints and default seed key. |
