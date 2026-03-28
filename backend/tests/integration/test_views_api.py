@@ -93,3 +93,43 @@ def test_saved_view_read_and_list_respect_ownership(tmp_path: Path) -> None:
     assert own_response.status_code == 200
     assert own_response.json()["data"]["name"] == "Own View"
     assert other_response.status_code == 404
+
+
+def test_saved_view_update_is_safe_and_validates_partial_mutations(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        user = seed_user(session)
+        first_view = seed_saved_view(
+            session,
+            view_id="66666666-6666-6666-6666-666666666663",
+            user_id=user.id,
+            name="First",
+            filters={"title": "ML"},
+            sort={"field": "posted_at", "direction": "desc"},
+            is_default=True,
+        )
+        second_view = seed_saved_view(
+            session,
+            view_id="66666666-6666-6666-6666-666666666664",
+            user_id=user.id,
+            name="Second",
+            filters={"title": "Backend"},
+            sort={"field": "title", "direction": "asc"},
+            is_default=False,
+        )
+
+    with api_client(database_url) as client:
+        updated = client.patch(
+            f"/api/v1/views/{second_view.id}",
+            json={"name": "Updated Second", "is_default": True},
+        )
+        invalid = client.patch(f"/api/v1/views/{second_view.id}", json={})
+
+    assert updated.status_code == 200
+    assert updated.json()["data"]["name"] == "Updated Second"
+    assert updated.json()["data"]["is_default"] is True
+    assert invalid.status_code == 422
+
+    with session_for_database(database_url) as session:
+        original_default = session.get(SavedView, first_view.id)
+        assert original_default.is_default is False

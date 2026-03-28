@@ -83,6 +83,29 @@ class SavedViewCreatePayload(BaseModel):
         return normalized
 
 
+class SavedViewUpdatePayload(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    filters: SavedViewFiltersPayload | None = None
+    sort: SavedViewSortPayload | None = None
+    is_default: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_optional_text(value)
+        if normalized is None:
+            raise ValueError("name must not be empty")
+        return normalized
+
+    @model_validator(mode="after")
+    def require_change(self) -> "SavedViewUpdatePayload":
+        if self.name is None and self.filters is None and self.sort is None and self.is_default is None:
+            raise ValueError("At least one field must be provided")
+        return self
+
+
 def _serialize_view(view: SavedView) -> dict:
     return {
         "id": view.id,
@@ -165,4 +188,35 @@ def get_view(
     view = _get_owned_view(session, view_id, current_user.id)
     if view is None:
         raise ApiError(404, "view_not_found", "Saved view not found")
+    return {"data": _serialize_view(view)}
+
+
+@router.patch("/{view_id}")
+def update_view(
+    view_id: str,
+    payload: SavedViewUpdatePayload,
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    view = _get_owned_view(session, view_id, current_user.id)
+    if view is None:
+        raise ApiError(404, "view_not_found", "Saved view not found")
+
+    if payload.name is not None:
+        view.name = payload.name
+    if payload.filters is not None:
+        view.filters = _filters_to_record(payload.filters)
+    if payload.sort is not None:
+        view.sort = payload.sort.model_dump()
+    if payload.is_default is not None:
+        view.is_default = payload.is_default
+        if payload.is_default:
+            _clear_other_defaults(session, current_user.id, view.id)
+
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise ApiError(409, "view_name_conflict", "Saved view name already exists") from exc
+
     return {"data": _serialize_view(view)}
