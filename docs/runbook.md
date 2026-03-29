@@ -28,6 +28,7 @@ Important variables:
 - `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`
 - `API_INTERNAL_BASE_URL=http://api:8000`
 - `DATABASE_URL=postgresql://job_discovery:job_discovery@postgres:5432/job_discovery`
+- `API_STARTUP_SEED_MODE=full`
 - `WORKER_DATABASE_URL=postgresql://job_discovery:job_discovery@postgres:5432/job_discovery`
 - `WORKER_HTTP_TIMEOUT_SECONDS=15`
 - `SCHEDULER_SYNC_INTERVAL_SECONDS=14400`
@@ -53,7 +54,8 @@ docker compose logs frontend --tail=100
 Notes:
 
 - the API container runs migrations and deterministic seed data before starting
-- the seed creates `local_user`, starter companies, and two starter jobs for repeatable UI/runtime proof
+- `API_STARTUP_SEED_MODE=full` seeds `local_user`, starter companies, and two starter jobs
+- `API_STARTUP_SEED_MODE=user-only` seeds only `local_user`, which is the safer mode for persistent live-data work
 - frontend proxy requests use `API_INTERNAL_BASE_URL`, so the browser talks only to the frontend origin
 
 ## 5. Local URLs
@@ -115,10 +117,18 @@ cd backend
 python -m job_discovery_backend.db.seed
 ```
 
+Run user-only seed locally:
+
+```bash
+cd backend
+python -m job_discovery_backend.db.seed --mode user-only
+```
+
 Seed behavior:
 
 - idempotent on rerun
-- updates seeded user/company/job records in place
+- `full` updates seeded user/company/job records in place
+- `user-only` keeps the local user available without recreating starter companies or jobs
 - does not create duplicate rows
 
 ## 9. Troubleshooting

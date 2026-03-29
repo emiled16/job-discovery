@@ -23,7 +23,13 @@ class BackendConfigTests(unittest.TestCase):
         ):
             load_settings({"DATABASE_URL": "sqlite:///tmp.db"})
 
+    def test_invalid_startup_seed_mode_raises_descriptive_error(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigError,
+            "API_STARTUP_SEED_MODE must be one of: full, user-only",
+        ):
+            load_settings({"API_STARTUP_SEED_MODE": "disabled"})
+
 
 if __name__ == "__main__":
     unittest.main()
-

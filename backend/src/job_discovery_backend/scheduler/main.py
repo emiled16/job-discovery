@@ -8,6 +8,7 @@ def main() -> None:
         [
             "beat",
             "--loglevel=INFO",
+            "--schedule=/tmp/celerybeat-schedule",
         ]
     )
 

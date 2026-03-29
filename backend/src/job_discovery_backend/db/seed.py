@@ -14,6 +14,8 @@ from job_discovery_backend.db.models import Company, CompanySource, Job, User
 from job_discovery_backend.db.seed_data import LOCAL_USER, STARTER_COMPANIES, STARTER_JOBS
 from job_discovery_backend.db.session import session_scope
 
+SEED_MODES = ("full", "user-only")
+
 
 @dataclass(frozen=True)
 class SeedSummary:
@@ -113,14 +115,32 @@ def _upsert_jobs(session: Session) -> int:
     return jobs_upserted
 
 
-def run_seed(database_url: str | None = None, *, apply_migrations: bool = True) -> SeedSummary:
+def _normalize_seed_mode(mode: str) -> str:
+    normalized_mode = mode.strip().lower()
+    if normalized_mode not in SEED_MODES:
+        allowed = ", ".join(SEED_MODES)
+        raise ValueError(f"mode must be one of: {allowed}")
+    return normalized_mode
+
+
+def run_seed(
+    database_url: str | None = None,
+    *,
+    apply_migrations: bool = True,
+    mode: str = "full",
+) -> SeedSummary:
+    normalized_mode = _normalize_seed_mode(mode)
     if apply_migrations:
         command.upgrade(build_alembic_config(database_url), "head")
 
     with session_scope(database_url) as session:
         users_upserted = _upsert_user(session)
-        companies_upserted, company_sources_upserted = _upsert_companies(session)
-        jobs_upserted = _upsert_jobs(session)
+        companies_upserted = 0
+        company_sources_upserted = 0
+        jobs_upserted = 0
+        if normalized_mode == "full":
+            companies_upserted, company_sources_upserted = _upsert_companies(session)
+            jobs_upserted = _upsert_jobs(session)
 
     return SeedSummary(
         users_upserted=users_upserted,
@@ -142,15 +162,26 @@ def main(argv: list[str] | None = None) -> None:
         default=None,
         help="Override the database URL used for migrations and seed writes.",
     )
+    parser.add_argument(
+        "--mode",
+        choices=SEED_MODES,
+        default="full",
+        help="Select whether to seed all starter records or only the local user.",
+    )
     args = parser.parse_args(argv)
 
-    summary = run_seed(args.database_url, apply_migrations=not args.skip_migrate)
+    summary = run_seed(
+        args.database_url,
+        apply_migrations=not args.skip_migrate,
+        mode=args.mode,
+    )
     print(
         "Seed complete:"
         f" users={summary.users_upserted}"
         f" companies={summary.companies_upserted}"
         f" company_sources={summary.company_sources_upserted}"
         f" jobs={summary.jobs_upserted}"
+        f" mode={args.mode}"
     )
 
 

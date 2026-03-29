@@ -68,11 +68,13 @@ def _persist_snapshot(
     if existing is not None:
         return False
 
+    recorded_at = max(datetime.now(UTC), observed_at)
     session.add(
         JobSnapshot(
             id=str(uuid4()),
             job_id=job_record.id,
             observed_at=observed_at,
+            recorded_at=recorded_at,
             source_updated_at=job.source_updated_at,
             content_hash=content_hash,
             raw_payload=job.raw_payload,

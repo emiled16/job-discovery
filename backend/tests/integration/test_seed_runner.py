@@ -55,3 +55,16 @@ def test_seed_creates_starter_companies_with_valid_states(tmp_path: Path) -> Non
 
     assert len(companies) == 3
     assert {company.lifecycle_status for company in companies} == {"active", "paused"}
+
+
+def test_user_only_seed_mode_skips_companies_sources_and_jobs(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+
+    run_seed(database_url, mode="user-only")
+
+    engine = create_engine(database_url)
+    with Session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(User)) == 1
+        assert session.scalar(select(func.count()).select_from(Company)) == 0
+        assert session.scalar(select(func.count()).select_from(CompanySource)) == 0
+        assert session.scalar(select(func.count()).select_from(Job)) == 0

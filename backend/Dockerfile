@@ -30,4 +30,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python -m job_discovery_backend.db.seed && python -m job_discovery_backend.main"]
+CMD ["sh", "-c", "python -m job_discovery_backend.startup && python -m job_discovery_backend.main"]

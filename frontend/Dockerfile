@@ -30,4 +30,4 @@ USER appuser
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "node ./scripts/validate-config.mjs && node server.js"]
+CMD ["sh", "-c", "node ./scripts/validate-config.mjs && HOSTNAME=0.0.0.0 node server.js"]

@@ -115,6 +115,7 @@ def test_sync_request_is_idempotent_and_persists_stateful_snapshots(tmp_path: Pa
     assert len(jobs) == 1
     assert jobs[0].source_identity == "greenhouse:openai:job-1"
     assert len(snapshots) == 2
+    assert all(snapshot.recorded_at >= snapshot.observed_at for snapshot in snapshots)
 
 
 def test_reconciliation_closes_after_default_threshold_supports_override_and_reopens(tmp_path: Path) -> None:

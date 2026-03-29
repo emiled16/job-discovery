@@ -14,6 +14,7 @@ class BackendSettings:
     port: int
     database_url: str
     redis_url: str
+    startup_seed_mode: str
 
 
 def _require_text(env: Mapping[str, str], key: str, default: str) -> str:
@@ -52,6 +53,15 @@ def _parse_url(
     return value
 
 
+def _parse_seed_mode(env: Mapping[str, str], key: str, default: str) -> str:
+    value = env.get(key, default).strip().lower()
+    allowed_values = {"full", "user-only"}
+    if value not in allowed_values:
+        allowed = ", ".join(sorted(allowed_values))
+        raise ConfigError(f"{key} must be one of: {allowed}")
+    return value
+
+
 def load_settings(env: Mapping[str, str] | None = None) -> BackendSettings:
     source = os.environ if env is None else env
 
@@ -69,5 +79,10 @@ def load_settings(env: Mapping[str, str] | None = None) -> BackendSettings:
             "REDIS_URL",
             "redis://redis:6379/0",
             {"redis", "rediss"},
+        ),
+        startup_seed_mode=_parse_seed_mode(
+            source,
+            "API_STARTUP_SEED_MODE",
+            "full",
         ),
     )
