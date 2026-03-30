@@ -191,7 +191,7 @@ export function ViewsScreen() {
                       Edit
                     </button>
                     <Link
-                      href={`/dashboard?${savedViewToDashboardSearch(view)}`}
+                      href={`/jobs?${savedViewToDashboardSearch(view)}`}
                       className="ghost-link"
                     >
                       Apply
@@ -216,8 +216,8 @@ export function ViewsScreen() {
               <h2>{draft.id ? draft.name : "New saved query"}</h2>
             </div>
             {draft.id ? (
-              <Link href={`/dashboard?${savedViewToDashboardSearch(draft)}`} className="primary-link">
-                Open in dashboard
+              <Link href={`/jobs?${savedViewToDashboardSearch(draft)}`} className="primary-link">
+                Open in jobs
               </Link>
             ) : null}
           </div>

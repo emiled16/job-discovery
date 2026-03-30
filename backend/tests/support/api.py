@@ -55,6 +55,7 @@ def api_client(database_url: str):
                 port=8000,
                 database_url=database_url,
                 redis_url="redis://redis:6379/0",
+                startup_seed_mode="user-only",
             ),
         ):
             client = TestClient(create_app())

@@ -1,7 +1,7 @@
 """Shared schema constants for ORM code and seed data."""
 
 COMPANY_LIFECYCLE_STATES = ("draft", "active", "paused", "archived")
-COMPANY_SOURCE_TYPES = ("greenhouse", "lever", "manual")
+COMPANY_SOURCE_TYPES = ("applytojob", "ashby", "greenhouse", "lever", "manual", "smartrecruiters", "workday")
 JOB_STATUSES = ("active", "closed")
 JOB_WORK_MODES = ("remote", "hybrid", "onsite", "unknown")
 APPLICATION_STATUSES = (

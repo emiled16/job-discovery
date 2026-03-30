@@ -2,10 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from html import unescape
+import re
 from typing import Any
 
 from job_discovery_backend.db.schema import JOB_WORK_MODES
 from job_discovery_backend.urls import validate_public_http_url_optional
+
+_BREAK_TAG_PATTERN = re.compile(r"(?i)<br\s*/?>")
+_BLOCK_CLOSE_PATTERN = re.compile(r"(?i)</(?:p|div|section|article|ul|ol|li|h[1-6]|tr|table)>")
+_LIST_OPEN_PATTERN = re.compile(r"(?i)<li[^>]*>")
+_TAG_PATTERN = re.compile(r"<[^>]+>")
+_INLINE_SPACE_PATTERN = re.compile(r"[^\S\n]+")
+_BLANK_LINE_PATTERN = re.compile(r"\n{3,}")
+_HTML_ENTITY_ESCAPE_GUARD = 3
 
 
 class IngestionError(ValueError):
@@ -41,6 +51,33 @@ def _normalize_datetime(value: datetime | None, *, field_name: str) -> datetime 
     return value.astimezone(UTC)
 
 
+def _decode_html_entities(value: str) -> str:
+    decoded = value
+    for _ in range(_HTML_ENTITY_ESCAPE_GUARD):
+        next_value = unescape(decoded)
+        if next_value == decoded:
+            break
+        decoded = next_value
+    return decoded
+
+
+def _normalize_description_text(value: str | None) -> str | None:
+    normalized = _normalize_text(value, field_name="description_text")
+    if normalized is None:
+        return None
+
+    normalized = _decode_html_entities(normalized).replace("\xa0", " ")
+    normalized = _BREAK_TAG_PATTERN.sub("\n", normalized)
+    normalized = _BLOCK_CLOSE_PATTERN.sub("\n", normalized)
+    normalized = _LIST_OPEN_PATTERN.sub("- ", normalized)
+    normalized = _TAG_PATTERN.sub(" ", normalized)
+    normalized = _INLINE_SPACE_PATTERN.sub(" ", normalized)
+    normalized = re.sub(r" *\n *", "\n", normalized)
+    normalized = _BLANK_LINE_PATTERN.sub("\n\n", normalized)
+    normalized = normalized.strip()
+    return normalized or None
+
+
 def infer_work_mode(*values: str | None) -> str:
     haystack = " ".join(value.lower() for value in values if value).strip()
     if not haystack:
@@ -73,7 +110,7 @@ class NormalizedJob:
         location_text = _normalize_text(self.location_text, field_name="location_text")
         employment_type = _normalize_text(self.employment_type, field_name="employment_type")
         apply_url = _normalize_url(self.apply_url, field_name="apply_url")
-        description_text = _normalize_text(self.description_text, field_name="description_text")
+        description_text = _normalize_description_text(self.description_text)
         posted_at = _normalize_datetime(self.posted_at, field_name="posted_at")
         source_updated_at = _normalize_datetime(self.source_updated_at, field_name="source_updated_at")
 

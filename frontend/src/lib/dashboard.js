@@ -1,7 +1,7 @@
 const DEFAULT_PER_PAGE = 12;
+const MAX_PER_PAGE = 100;
 const DEFAULT_SORT = "posted_at";
 const DEFAULT_ORDER = "desc";
-const DEFAULT_VIEW = "card";
 const DEFAULT_WORK_MODES = ["remote", "hybrid", "onsite"];
 
 function asArray(value) {
@@ -39,8 +39,7 @@ export function parseDashboardState(searchParamsLike) {
     sort: params.get("sort") ?? DEFAULT_SORT,
     order: params.get("order") ?? DEFAULT_ORDER,
     page: asPositiveInt(params.get("page"), 1),
-    perPage: asPositiveInt(params.get("per_page"), DEFAULT_PER_PAGE),
-    viewMode: ["card", "table"].includes(params.get("view")) ? params.get("view") : DEFAULT_VIEW,
+    perPage: Math.min(asPositiveInt(params.get("per_page"), DEFAULT_PER_PAGE), MAX_PER_PAGE),
     selectedJobId,
   };
 }
@@ -84,7 +83,6 @@ export function createDashboardSearch(state) {
   params.set("order", state.order ?? DEFAULT_ORDER);
   params.set("page", String(state.page ?? 1));
   params.set("per_page", String(state.perPage ?? DEFAULT_PER_PAGE));
-  params.set("view", state.viewMode ?? DEFAULT_VIEW);
   if (state.selectedJobId) {
     params.set("job_id", state.selectedJobId);
   }

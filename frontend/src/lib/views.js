@@ -75,7 +75,6 @@ export function savedViewToDashboardSearch(viewLike) {
     order: draft.sortDirection,
     page: 1,
     perPage: 12,
-    viewMode: "card",
     selectedJobId: "",
   });
 }

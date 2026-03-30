@@ -46,6 +46,8 @@ def _upsert_companies(session: Session) -> tuple[int, int]:
 
         company = session.scalar(select(Company).where(Company.slug == company_payload["slug"]))
         if company is None:
+            company = session.scalar(select(Company).where(Company.name == company_payload["name"]))
+        if company is None:
             company = Company(**company_payload)
             session.add(company)
             session.flush()

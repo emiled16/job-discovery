@@ -20,7 +20,7 @@ def _database_url(tmp_path: Path) -> str:
     return f"sqlite+pysqlite:///{tmp_path / 'admin-api.sqlite3'}"
 
 
-def test_admin_companies_list_and_create_validate_defaults(tmp_path: Path) -> None:
+def test_companies_list_and_create_validate_defaults(tmp_path: Path) -> None:
     database_url = _database_url(tmp_path)
     with session_for_database(database_url) as session:
         seed_user(session)
@@ -37,9 +37,9 @@ def test_admin_companies_list_and_create_validate_defaults(tmp_path: Path) -> No
         )
 
     with api_client(database_url) as client:
-        listed = client.get("/api/v1/admin/companies")
+        listed = client.get("/api/v1/companies")
         created = client.post(
-            "/api/v1/admin/companies",
+            "/api/v1/companies",
             json={
                 "slug": "vercel",
                 "name": "Vercel",
@@ -47,7 +47,7 @@ def test_admin_companies_list_and_create_validate_defaults(tmp_path: Path) -> No
             },
         )
         invalid = client.post(
-            "/api/v1/admin/companies",
+            "/api/v1/companies",
             json={"slug": "broken", "source": {"source_type": "lever"}},
         )
 
@@ -59,7 +59,7 @@ def test_admin_companies_list_and_create_validate_defaults(tmp_path: Path) -> No
     assert invalid.status_code == 422
 
 
-def test_admin_company_patch_validates_lifecycle_transitions(tmp_path: Path) -> None:
+def test_company_patch_validates_lifecycle_transitions(tmp_path: Path) -> None:
     database_url = _database_url(tmp_path)
     with session_for_database(database_url) as session:
         active = seed_company(
@@ -89,11 +89,11 @@ def test_admin_company_patch_validates_lifecycle_transitions(tmp_path: Path) -> 
 
     with api_client(database_url) as client:
         valid = client.patch(
-            f"/api/v1/admin/companies/{active.id}",
+            f"/api/v1/companies/{active.id}",
             json={"lifecycle_status": "paused", "source": {"is_enabled": False}},
         )
         invalid = client.patch(
-            f"/api/v1/admin/companies/{archived.id}",
+            f"/api/v1/companies/{archived.id}",
             json={"lifecycle_status": "active"},
         )
 
@@ -115,10 +115,10 @@ def test_manual_sync_dispatches_company_request_metadata(tmp_path: Path) -> None
             name="OpenAI",
         )
 
-    with patch("job_discovery_backend.api.routes.v1.admin.dispatch_company_sync") as dispatch:
+    with patch("job_discovery_backend.api.routes.v1.companies.dispatch_company_sync") as dispatch:
         with api_client(database_url) as client:
             response = client.post(
-                f"/api/v1/admin/companies/{company.id}/sync",
+                f"/api/v1/companies/{company.id}/sync",
                 headers={"X-Request-ID": "req-sync-1"},
             )
 

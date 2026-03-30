@@ -36,7 +36,7 @@ describe("dashboard helpers", () => {
   it("parses repeated filters and selected job ids", () => {
     const state = parseDashboardState(
       new URLSearchParams(
-        "title=ML&company_ids=c1&company_ids=c2&work_modes=remote&job_id=job-9&page=2&view=table",
+        "title=ML&company_ids=c1&company_ids=c2&work_modes=remote&job_id=job-9&page=2&per_page=75",
       ),
     );
 
@@ -45,7 +45,13 @@ describe("dashboard helpers", () => {
     expect(state.workModes).toEqual(["remote"]);
     expect(state.selectedJobId).toBe("job-9");
     expect(state.page).toBe(2);
-    expect(state.viewMode).toBe("table");
+    expect(state.perPage).toBe(75);
+  });
+
+  it("caps per_page at the frontend max", () => {
+    const state = parseDashboardState(new URLSearchParams("per_page=999"));
+
+    expect(state.perPage).toBe(100);
   });
 
   it("creates stable dashboard search strings", () => {
@@ -60,44 +66,30 @@ describe("dashboard helpers", () => {
       order: "desc",
       page: 1,
       perPage: 12,
-      viewMode: "card",
       selectedJobId: "job-1",
     });
 
     expect(query).toContain("title=ML");
     expect(query).toContain("company_ids=c1");
     expect(query).toContain("job_id=job-1");
+    expect(query).toContain("per_page=12");
   });
 });
 
 describe("job results", () => {
-  it("renders card mode roles", () => {
-    render(
-      <JobResults
-        jobs={sampleJobs}
-        emptyMessage="Nothing"
-        selectedJobId=""
-        viewMode="card"
-        buildSelectSearch={(jobId) => `job_id=${jobId}`}
-      />,
-    );
-
-    expect(screen.getByText("ML Engineer")).toBeInTheDocument();
-    expect(screen.getByText("View details")).toBeInTheDocument();
-  });
-
-  it("renders table mode roles", () => {
+  it("renders roles in table mode", () => {
     render(
       <JobResults
         jobs={sampleJobs}
         emptyMessage="Nothing"
         selectedJobId="job-1"
-        viewMode="table"
         buildSelectSearch={(jobId) => `job_id=${jobId}`}
       />,
     );
 
     expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("ML Engineer")).toBeInTheDocument();
     expect(screen.getByText("OpenAI")).toBeInTheDocument();
+    expect(screen.getByText("ML Engineer").getAttribute("href")).toBe("/jobs?job_id=job-1");
   });
 });

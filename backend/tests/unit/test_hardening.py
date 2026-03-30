@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from job_discovery_backend.api.validation import validate_http_url  # noqa: E402
-from job_discovery_backend.ingestion.adapters.base import fetch_json  # noqa: E402
+from job_discovery_backend.ingestion.adapters.base import fetch_json, fetch_text  # noqa: E402
 from job_discovery_backend.ingestion.models import IngestionError  # noqa: E402
 from job_discovery_backend.observability import JsonFormatter, clear_request_id, set_request_id  # noqa: E402
 from job_discovery_backend.worker.config import load_settings  # noqa: E402
@@ -56,6 +56,11 @@ def test_public_http_url_validation_rejects_unsafe_targets(value: str) -> None:
 def test_fetch_json_rejects_unsafe_urls_before_request() -> None:
     with pytest.raises(IngestionError, match="request_url must target a public hostname"):
         fetch_json("http://127.0.0.1/jobs", timeout_seconds=5)
+
+
+def test_fetch_text_rejects_unsafe_urls_before_request() -> None:
+    with pytest.raises(IngestionError, match="request_url must target a public hostname"):
+        fetch_text("http://127.0.0.1/jobs", timeout_seconds=5)
 
 
 def test_fetch_json_surfaces_timeout_fail_fast() -> None:

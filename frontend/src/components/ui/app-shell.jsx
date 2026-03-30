@@ -4,12 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Overview" },
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/jobs", label: "Jobs", aliases: ["/dashboard"] },
+  { href: "/companies", label: "Companies" },
   { href: "/views", label: "Views" },
   { href: "/summary", label: "Summary" },
   { href: "/admin", label: "Admin" },
 ];
+
+function isNavItemActive(pathname, item) {
+  const candidates = [item.href, ...(item.aliases ?? [])];
+  return candidates.some(
+    (candidate) => pathname === candidate || pathname.startsWith(`${candidate}/`),
+  );
+}
 
 export function AppShell({ children, eyebrow, title, description, actions }) {
   const pathname = usePathname();
@@ -17,7 +24,7 @@ export function AppShell({ children, eyebrow, title, description, actions }) {
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
-        <Link className="brand-mark" href="/">
+        <Link className="brand-mark" href="/jobs">
           <span className="brand-kicker">Job Discovery</span>
           <strong>Field Console</strong>
         </Link>
@@ -26,7 +33,7 @@ export function AppShell({ children, eyebrow, title, description, actions }) {
             <Link
               key={item.href}
               href={item.href}
-              className={pathname === item.href ? "nav-link is-active" : "nav-link"}
+              className={isNavItemActive(pathname, item) ? "nav-link is-active" : "nav-link"}
             >
               {item.label}
             </Link>

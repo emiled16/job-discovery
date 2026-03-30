@@ -26,6 +26,7 @@ def seed_company(
     company_id: str,
     slug: str,
     name: str,
+    description: str | None = None,
     lifecycle_status: str = "active",
 ) -> Company:
     company = Company(
@@ -33,7 +34,7 @@ def seed_company(
         slug=slug,
         name=name,
         website_url=f"https://{slug}.example.com",
-        description=f"{name} company",
+        description=description if description is not None else f"{name} company",
         lifecycle_status=lifecycle_status,
     )
     session.add(company)

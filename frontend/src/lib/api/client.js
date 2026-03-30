@@ -88,14 +88,14 @@ export function createApiClient(options = {}) {
     getJobs(query) {
       return request("/jobs", { query });
     },
+    getCompanies() {
+      return request("/companies");
+    },
     getJob(jobId) {
       return request(`/jobs/${jobId}`);
     },
     upsertApplication(jobId, body) {
       return request(`/jobs/${jobId}/application`, { method: "PUT", body });
-    },
-    getCompanies() {
-      return request("/admin/companies");
     },
     getViews() {
       return request("/views");
@@ -122,13 +122,13 @@ export function createApiClient(options = {}) {
       return request(`/admin/pipeline-runs/${runId}`);
     },
     createCompany(body) {
-      return request("/admin/companies", { method: "POST", body });
+      return request("/companies", { method: "POST", body });
     },
     updateCompany(companyId, body) {
-      return request(`/admin/companies/${companyId}`, { method: "PATCH", body });
+      return request(`/companies/${companyId}`, { method: "PATCH", body });
     },
     triggerCompanySync(companyId) {
-      return request(`/admin/companies/${companyId}/sync`, { method: "POST" });
+      return request(`/companies/${companyId}/sync`, { method: "POST" });
     },
   };
 }

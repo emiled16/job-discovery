@@ -1,52 +1,14 @@
 import Link from "next/link";
 
-import { formatPostedDate, summarizeApplication } from "src/lib/dashboard";
+import { formatPostedDate } from "src/lib/dashboard";
 
 import { ApplicationToggle } from "./application-toggle";
 
 function QueryLink({ search, children, className }) {
   return (
-    <Link href={search ? `/dashboard?${search}` : "/dashboard"} className={className}>
+    <Link href={search ? `/jobs?${search}` : "/jobs"} className={className}>
       {children}
     </Link>
-  );
-}
-
-function JobMeta({ job }) {
-  return (
-    <div className="job-meta">
-      <span>{job.company.name}</span>
-      <span>{job.location_text || "Location flexible"}</span>
-      <span>{job.work_mode || "Mode pending"}</span>
-      <span>{formatPostedDate(job.posted_at)}</span>
-    </div>
-  );
-}
-
-function JobCard({ job, isSelected, selectSearch }) {
-  return (
-    <article className={isSelected ? "job-card is-selected" : "job-card"}>
-      <div className="job-card-main">
-        <div className="job-card-header">
-          <div>
-            <p className="job-company">{job.company.name}</p>
-            <h2>{job.title}</h2>
-          </div>
-          <span className="tag">{job.work_mode || "unknown"}</span>
-        </div>
-        <JobMeta job={job} />
-        <p className="job-preview">{job.description_preview || "No description preview yet."}</p>
-        <div className="job-card-footer">
-          <span className="status-note">{summarizeApplication(job.application)}</span>
-          <div className="job-actions">
-            <ApplicationToggle jobId={job.id} application={job.application} compact />
-            <QueryLink search={selectSearch} className="ghost-link">
-              View details
-            </QueryLink>
-          </div>
-        </div>
-      </div>
-    </article>
   );
 }
 
@@ -91,7 +53,6 @@ export function JobResults({
   jobs,
   emptyMessage,
   selectedJobId,
-  viewMode,
   buildSelectSearch,
 }) {
   if (!jobs.length) {
@@ -104,26 +65,11 @@ export function JobResults({
     );
   }
 
-  if (viewMode === "table") {
-    return (
-      <JobTable
-        jobs={jobs}
-        selectedJobId={selectedJobId}
-        buildSelectSearch={buildSelectSearch}
-      />
-    );
-  }
-
   return (
-    <div className="job-grid">
-      {jobs.map((job) => (
-        <JobCard
-          key={job.id}
-          job={job}
-          isSelected={selectedJobId === job.id}
-          selectSearch={buildSelectSearch(job.id)}
-        />
-      ))}
-    </div>
+    <JobTable
+      jobs={jobs}
+      selectedJobId={selectedJobId}
+      buildSelectSearch={buildSelectSearch}
+    />
   );
 }

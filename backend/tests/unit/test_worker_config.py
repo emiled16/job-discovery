@@ -5,7 +5,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from job_discovery_backend.worker.config import ConfigError, load_settings
+from job_discovery_backend.worker.config import ConfigError, load_settings  # noqa: E402
 
 
 class WorkerConfigTests(unittest.TestCase):
@@ -36,6 +36,11 @@ class WorkerConfigTests(unittest.TestCase):
             "WORKER_JOB_CLOSURE_MISSED_CYCLES must be a positive integer",
         ):
             load_settings({"WORKER_JOB_CLOSURE_MISSED_CYCLES": "0"})
+
+    def test_load_settings_uses_defaults_when_optional_values_are_missing(self) -> None:
+        settings = load_settings({})
+        self.assertEqual(settings.http_timeout_seconds, 15)
+        self.assertEqual(settings.max_company_sync_workers, 4)
 
 
 if __name__ == "__main__":

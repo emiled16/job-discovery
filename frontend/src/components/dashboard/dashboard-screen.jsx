@@ -23,6 +23,32 @@ const SORT_OPTIONS = [
   { value: "company_name:asc", label: "Company A-Z" },
   { value: "title:asc", label: "Title A-Z" },
 ];
+const PER_PAGE_OPTIONS = [12, 25, 50, 100];
+
+function FilterToggleGroup({ label, options, selectedValues, onToggle, emptyLabel }) {
+  return (
+    <div className="filter-section">
+      <div className="filter-section-head">
+        <span>{label}</span>
+        <small>{selectedValues.length ? `${selectedValues.length} selected` : emptyLabel}</small>
+      </div>
+      <div className="filter-choice-grid">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={
+              selectedValues.includes(option.value) ? "filter-chip is-active" : "filter-chip"
+            }
+            onClick={() => onToggle(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function DashboardScreen() {
   const router = useRouter();
@@ -143,7 +169,7 @@ export function DashboardScreen() {
 
   function pushState(nextState) {
     startRouting(() => {
-      router.push(`/dashboard?${createDashboardSearch(nextState)}`, { scroll: false });
+      router.push(`/jobs?${createDashboardSearch(nextState)}`, { scroll: false });
     });
   }
 
@@ -151,9 +177,14 @@ export function DashboardScreen() {
     setFilterDraft((current) => ({ ...current, [key]: value }));
   }
 
-  function onMultiSelectChange(event, key) {
-    const values = Array.from(event.target.selectedOptions, (option) => option.value);
-    updateFilterDraft(key, values);
+  function toggleMultiValue(key, value) {
+    setFilterDraft((current) => {
+      const currentValues = current[key] ?? [];
+      const nextValues = currentValues.includes(value)
+        ? currentValues.filter((entry) => entry !== value)
+        : [...currentValues, value];
+      return { ...current, [key]: nextValues };
+    });
   }
 
   function onApplyFilters(event) {
@@ -164,7 +195,6 @@ export function DashboardScreen() {
       perPage: state.perPage,
       sort: state.sort,
       order: state.order,
-      viewMode: state.viewMode,
       selectedJobId: "",
     });
   }
@@ -181,7 +211,6 @@ export function DashboardScreen() {
       order: state.order,
       page: 1,
       perPage: state.perPage,
-      viewMode: state.viewMode,
       selectedJobId: "",
     });
   }
@@ -191,8 +220,12 @@ export function DashboardScreen() {
     pushState({ ...state, sort, order, page: 1 });
   }
 
-  function onViewModeChange(viewMode) {
-    pushState({ ...state, viewMode });
+  function onPerPageChange(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return;
+    }
+    pushState({ ...state, perPage: Math.min(parsed, 100), page: 1, selectedJobId: "" });
   }
 
   function onPageChange(page) {
@@ -205,10 +238,13 @@ export function DashboardScreen() {
 
   const resultLabel =
     jobsState.meta.total === 1 ? "1 live role" : `${jobsState.meta.total} live roles`;
+  const selectedCompanyNames = companies
+    .filter((company) => filterDraft.companyIds.includes(company.id))
+    .map((company) => company.name);
 
   return (
     <AppShell
-      eyebrow="Dashboard"
+      eyebrow="Jobs"
       title="Search the live pipeline."
       description="Browse normalized roles, keep filters stable, and mark progress without leaving the result stream."
       actions={
@@ -223,6 +259,14 @@ export function DashboardScreen() {
       <section className="dashboard-shell">
         <div className="dashboard-controls">
           <form className="control-panel" onSubmit={onApplyFilters}>
+            <div className="filter-heading">
+              <div>
+                <p className="eyebrow">Search filters</p>
+                <h2>Shape the jobs stream.</h2>
+              </div>
+              <p>Keep the result set narrow without losing the live detail panel.</p>
+            </div>
+
             <div className="panel-row">
               <label className="field">
                 <span>Title</span>
@@ -241,36 +285,20 @@ export function DashboardScreen() {
                 />
               </label>
             </div>
-            <div className="panel-row">
-              <label className="field">
-                <span>Companies</span>
-                <select
-                  multiple
-                  value={filterDraft.companyIds}
-                  onChange={(event) => onMultiSelectChange(event, "companyIds")}
-                >
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>Work modes</span>
-                <select
-                  multiple
-                  value={filterDraft.workModes}
-                  onChange={(event) => onMultiSelectChange(event, "workModes")}
-                >
-                  {defaultWorkModes().map((mode) => (
-                    <option key={mode} value={mode}>
-                      {mode}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            <FilterToggleGroup
+              label="Companies"
+              options={companies.map((company) => ({ value: company.id, label: company.name }))}
+              selectedValues={filterDraft.companyIds}
+              onToggle={(value) => toggleMultiValue("companyIds", value)}
+              emptyLabel="all companies"
+            />
+            <FilterToggleGroup
+              label="Work modes"
+              options={defaultWorkModes().map((mode) => ({ value: mode, label: mode }))}
+              selectedValues={filterDraft.workModes}
+              onToggle={(value) => toggleMultiValue("workModes", value)}
+              emptyLabel="all modes"
+            />
             <div className="panel-row panel-row-dates">
               <label className="field">
                 <span>Posted after</span>
@@ -289,6 +317,35 @@ export function DashboardScreen() {
                 />
               </label>
             </div>
+            {filterDraft.title ||
+            filterDraft.location ||
+            selectedCompanyNames.length ||
+            filterDraft.workModes.length ||
+            filterDraft.postedAfter ||
+            filterDraft.postedBefore ? (
+              <div className="filter-summary">
+                {filterDraft.title ? <span className="metric-chip">Title: {filterDraft.title}</span> : null}
+                {filterDraft.location ? (
+                  <span className="metric-chip">Location: {filterDraft.location}</span>
+                ) : null}
+                {selectedCompanyNames.map((name) => (
+                  <span key={name} className="metric-chip">
+                    {name}
+                  </span>
+                ))}
+                {filterDraft.workModes.map((mode) => (
+                  <span key={mode} className="metric-chip">
+                    {mode}
+                  </span>
+                ))}
+                {filterDraft.postedAfter ? (
+                  <span className="metric-chip">After {filterDraft.postedAfter}</span>
+                ) : null}
+                {filterDraft.postedBefore ? (
+                  <span className="metric-chip">Before {filterDraft.postedBefore}</span>
+                ) : null}
+              </div>
+            ) : null}
             <div className="panel-actions">
               <button className="primary-link buttonish" type="submit" disabled={isRouting}>
                 {isRouting ? "Applying..." : "Apply filters"}
@@ -315,22 +372,22 @@ export function DashboardScreen() {
                     ))}
                   </select>
                 </label>
-              </div>
-              <div className="segmented-control" aria-label="Result layout">
-                <button
-                  type="button"
-                  className={state.viewMode === "card" ? "segment is-active" : "segment"}
-                  onClick={() => onViewModeChange("card")}
-                >
-                  Cards
-                </button>
-                <button
-                  type="button"
-                  className={state.viewMode === "table" ? "segment is-active" : "segment"}
-                  onClick={() => onViewModeChange("table")}
-                >
-                  Table
-                </button>
+                <label className="field compact-field">
+                  <span>Per page</span>
+                  <select
+                    value={String(state.perPage)}
+                    onChange={(event) => onPerPageChange(event.target.value)}
+                  >
+                    {PER_PAGE_OPTIONS.includes(state.perPage) ? null : (
+                      <option value={String(state.perPage)}>{state.perPage}</option>
+                    )}
+                    {PER_PAGE_OPTIONS.map((option) => (
+                      <option key={option} value={String(option)}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
 
@@ -346,7 +403,6 @@ export function DashboardScreen() {
                 jobs={jobsState.data}
                 emptyMessage="Try widening the title, location, company, or date range."
                 selectedJobId={state.selectedJobId}
-                viewMode={state.viewMode}
                 buildSelectSearch={buildSelectSearch}
               />
             )}
@@ -392,7 +448,7 @@ export function DashboardScreen() {
         ) : (
           <JobDetailPanel
             job={detailState.data}
-            closeHref={`/dashboard?${createDashboardSearch({ ...state, selectedJobId: "" })}`}
+            closeHref={`/jobs?${createDashboardSearch({ ...state, selectedJobId: "" })}`}
           />
         )}
       </section>

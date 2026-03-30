@@ -75,4 +75,59 @@ describe("api client", () => {
       }),
     );
   });
+
+  it("uses the public companies endpoint for frontend discovery", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const client = createApiClient({
+      baseUrl: "",
+      basePath: "/api/backend/api/v1",
+      fetchImpl,
+    });
+
+    await client.getCompanies();
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/backend/api/v1/companies",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("routes company management through the companies resource", async () => {
+    const fetchImpl = vi.fn().mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ data: { id: "company-1" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })),
+    );
+    const client = createApiClient({
+      baseUrl: "",
+      basePath: "/api/backend/api/v1",
+      fetchImpl,
+    });
+
+    await client.createCompany({ name: "Stripe" });
+    await client.updateCompany("company-1", { name: "Stripe Inc." });
+    await client.triggerCompanySync("company-1");
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      "/api/backend/api/v1/companies",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "/api/backend/api/v1/companies/company-1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      3,
+      "/api/backend/api/v1/companies/company-1/sync",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
 });

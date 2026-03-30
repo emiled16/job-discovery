@@ -197,3 +197,31 @@ def test_job_detail_returns_full_content_and_404_for_unknown_job(tmp_path: Path)
         "code": "job_not_found",
         "message": "Job not found",
     }
+
+
+def test_companies_list_is_available_to_user_facing_clients(tmp_path: Path) -> None:
+    database_url = _database_url(tmp_path)
+    with session_for_database(database_url) as session:
+        seed_user(session)
+        company = seed_company(
+            session,
+            company_id="22222222-2222-2222-2222-222222222231",
+            slug="stripe",
+            name="Stripe",
+            description="Payments infrastructure",
+        )
+        seed_company_source(
+            session,
+            source_id="33333333-3333-3333-3333-333333333341",
+            company_id=company.id,
+            source_type="greenhouse",
+            external_key="stripe",
+        )
+
+    with api_client(database_url) as client:
+        response = client.get("/api/v1/companies")
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload[0]["name"] == "Stripe"
+    assert payload[0]["sources"][0]["source_type"] == "greenhouse"

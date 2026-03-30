@@ -23,6 +23,14 @@ class JobSourceAdapter(Protocol):
 
 
 def fetch_json(url: str, *, timeout_seconds: int) -> object:
+    response = _fetch_url(url, timeout_seconds=timeout_seconds, accept_header="application/json")
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise IngestionError("response payload was not valid JSON") from exc
+
+
+def post_json(url: str, *, timeout_seconds: int, payload: object | None = None) -> object:
     try:
         safe_url = validate_public_http_url(url, field_name="request_url")
     except ValueError as exc:
@@ -31,9 +39,9 @@ def fetch_json(url: str, *, timeout_seconds: int) -> object:
         with httpx.Client(
             timeout=httpx.Timeout(timeout_seconds),
             follow_redirects=False,
-            headers={"Accept": "application/json"},
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
         ) as client:
-            response = client.get(safe_url)
+            response = client.post(safe_url, json=payload)
             response.raise_for_status()
     except httpx.TimeoutException as exc:
         raise IngestionError(f"request_url timed out after {timeout_seconds} seconds") from exc
@@ -46,6 +54,33 @@ def fetch_json(url: str, *, timeout_seconds: int) -> object:
         return response.json()
     except ValueError as exc:
         raise IngestionError("response payload was not valid JSON") from exc
+
+
+def fetch_text(url: str, *, timeout_seconds: int) -> str:
+    return _fetch_url(url, timeout_seconds=timeout_seconds, accept_header="text/html,application/xhtml+xml").text
+
+
+def _fetch_url(url: str, *, timeout_seconds: int, accept_header: str) -> httpx.Response:
+    try:
+        safe_url = validate_public_http_url(url, field_name="request_url")
+    except ValueError as exc:
+        raise IngestionError(str(exc)) from exc
+    try:
+        with httpx.Client(
+            timeout=httpx.Timeout(timeout_seconds),
+            follow_redirects=False,
+            headers={"Accept": accept_header},
+        ) as client:
+            response = client.get(safe_url)
+            response.raise_for_status()
+    except httpx.TimeoutException as exc:
+        raise IngestionError(f"request_url timed out after {timeout_seconds} seconds") from exc
+    except httpx.HTTPStatusError as exc:
+        raise IngestionError(f"request_url failed with status {exc.response.status_code}") from exc
+    except httpx.HTTPError as exc:
+        raise IngestionError(f"request_url failed: {exc}") from exc
+
+    return response
 
 
 def ensure_adapter_contract(adapter: object) -> JobSourceAdapter:

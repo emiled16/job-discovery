@@ -1,0 +1,39 @@
+{
+  "offset": 0,
+  "limit": 100,
+  "totalFound": 2,
+  "content": [
+    {
+      "id": "6000000000962928",
+      "name": "Senior Technical Program Manager - Platform",
+      "releasedDate": "2026-03-29T17:13:39.324Z",
+      "location": {
+        "city": "Sydney",
+        "country": "au",
+        "remote": false,
+        "hybrid": true,
+        "fullLocation": "Sydney, Australia"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      }
+    },
+    {
+      "id": "744000116559687",
+      "name": "Senior Software Engineer",
+      "releasedDate": "2026-03-25T08:27:01.990Z",
+      "location": {
+        "city": "Poland",
+        "country": "pl",
+        "remote": true,
+        "hybrid": false,
+        "fullLocation": "Poland, Remote"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      }
+    }
+  ]
+}
